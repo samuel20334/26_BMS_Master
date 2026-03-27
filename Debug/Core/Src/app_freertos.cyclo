@@ -1,0 +1,5 @@
+C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc681x.h:745:20:FAULT_LOW	1
+../Core/Src/app_freertos.c:86:6:MX_FREERTOS_Init	1
+../Core/Src/app_freertos.c:131:6:SerialTask	1
+../Core/Src/app_freertos.c:153:6:MeasurementTask	2
+../Core/Src/app_freertos.c:197:6:SafetyTask	3

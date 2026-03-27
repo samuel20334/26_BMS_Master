@@ -1,0 +1,8 @@
+../Drivers/LTC6813/Src/bms_hardware.c:16:6:cs_low	16	static
+../Drivers/LTC6813/Src/bms_hardware.c:21:6:cs_high	16	static
+../Drivers/LTC6813/Src/bms_hardware.c:26:6:delay_u	24	static
+../Drivers/LTC6813/Src/bms_hardware.c:33:6:delay_m	16	static
+../Drivers/LTC6813/Src/bms_hardware.c:41:6:spi_write_array	32	static
+../Drivers/LTC6813/Src/bms_hardware.c:59:6:spi_write_read	24	static
+../Drivers/LTC6813/Src/bms_hardware.c:72:19:spi_read_byte	32	static
+../Drivers/LTC6813/Src/bms_hardware.c:78:19:spi_read_array	24	static

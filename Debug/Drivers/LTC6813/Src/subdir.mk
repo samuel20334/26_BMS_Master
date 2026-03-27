@@ -1,0 +1,36 @@
+################################################################################
+# Automatically-generated file. Do not edit!
+# Toolchain: GNU Tools for STM32 (13.3.rel1)
+################################################################################
+
+# Add inputs and outputs from these tool invocations to the build variables 
+C_SRCS += \
+../Drivers/LTC6813/Src/bms_hardware.c \
+../Drivers/LTC6813/Src/ltc6813.c \
+../Drivers/LTC6813/Src/ltc6813_testing.c \
+../Drivers/LTC6813/Src/ltc681x.c 
+
+OBJS += \
+./Drivers/LTC6813/Src/bms_hardware.o \
+./Drivers/LTC6813/Src/ltc6813.o \
+./Drivers/LTC6813/Src/ltc6813_testing.o \
+./Drivers/LTC6813/Src/ltc681x.o 
+
+C_DEPS += \
+./Drivers/LTC6813/Src/bms_hardware.d \
+./Drivers/LTC6813/Src/ltc6813.d \
+./Drivers/LTC6813/Src/ltc6813_testing.d \
+./Drivers/LTC6813/Src/ltc681x.d 
+
+
+# Each subdirectory must supply rules for building sources it contributes
+Drivers/LTC6813/Src/%.o Drivers/LTC6813/Src/%.su Drivers/LTC6813/Src/%.cyclo: ../Drivers/LTC6813/Src/%.c Drivers/LTC6813/Src/subdir.mk
+	arm-none-eabi-gcc "$<" -mcpu=cortex-m33 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32H563xx -c -I../Core/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H5xx/Include -I../Drivers/CMSIS/Include -I"C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc" -I../Middlewares/Third_Party/FreeRTOS/Source/include/ -I../Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM33_NTZ/non_secure/ -I../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/ -I../Middlewares/Third_Party/CMSIS/RTOS2/Include/ -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"$(@:%.o=%.d)" -MT"$@" --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "$@"
+
+clean: clean-Drivers-2f-LTC6813-2f-Src
+
+clean-Drivers-2f-LTC6813-2f-Src:
+	-$(RM) ./Drivers/LTC6813/Src/bms_hardware.cyclo ./Drivers/LTC6813/Src/bms_hardware.d ./Drivers/LTC6813/Src/bms_hardware.o ./Drivers/LTC6813/Src/bms_hardware.su ./Drivers/LTC6813/Src/ltc6813.cyclo ./Drivers/LTC6813/Src/ltc6813.d ./Drivers/LTC6813/Src/ltc6813.o ./Drivers/LTC6813/Src/ltc6813.su ./Drivers/LTC6813/Src/ltc6813_testing.cyclo ./Drivers/LTC6813/Src/ltc6813_testing.d ./Drivers/LTC6813/Src/ltc6813_testing.o ./Drivers/LTC6813/Src/ltc6813_testing.su ./Drivers/LTC6813/Src/ltc681x.cyclo ./Drivers/LTC6813/Src/ltc681x.d ./Drivers/LTC6813/Src/ltc681x.o ./Drivers/LTC6813/Src/ltc681x.su
+
+.PHONY: clean-Drivers-2f-LTC6813-2f-Src
+
