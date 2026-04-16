@@ -57,17 +57,16 @@ extern "C" {
 extern osThreadId_t SerialTaskHandle;
 extern osThreadId_t MeasurementTaskHandle;
 extern osThreadId_t SafetyTaskHandle;
+extern osThreadId_t CANTaskHandle;
 
 /* Exported function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-void MeasurementTask(void *pvParameters);
-
-void SerialTask(void *pvParameters);
 /* USER CODE END FunctionPrototypes */
 
 void SerialTask(void *argument);
 void MeasurementTask(void *argument);
 void SafetyTask(void *argument);
+void CANTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 

@@ -1,5 +1,6 @@
-C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc681x.h:745:20:FAULT_LOW	8	static
-../Core/Src/app_freertos.c:86:6:MX_FREERTOS_Init	8	static
-../Core/Src/app_freertos.c:131:6:SerialTask	24	static
-../Core/Src/app_freertos.c:153:6:MeasurementTask	24	static
-../Core/Src/app_freertos.c:197:6:SafetyTask	24	static
+../Core/Inc/bms_functions.h:112:20:FAULT_LOW	8	static
+../Core/Src/app_freertos.c:100:6:MX_FREERTOS_Init	8	static
+../Core/Src/app_freertos.c:148:6:SerialTask	24	static
+../Core/Src/app_freertos.c:173:6:MeasurementTask	24	static
+../Core/Src/app_freertos.c:200:6:SafetyTask	24	static
+../Core/Src/app_freertos.c:223:6:CANTask	24	static

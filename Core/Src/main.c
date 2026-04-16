@@ -22,7 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "ltc6813_testing.h"
+#include "bms_functions.h"
+#include <stdatomic.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -38,8 +39,6 @@
 
 #define CS_GPIO_Port GPIOB
 #define CS_Pin       GPIO_PIN_12
-
-#define TOTAL_IC 10
 
 #define UNDERVOLTAGE 2100
 #define OVERVOLTAGE 4400
@@ -71,6 +70,16 @@ DMA_HandleTypeDef handle_GPDMA1_Channel0;
 
 /* USER CODE BEGIN PV */
 cell_asic IC[TOTAL_IC];
+
+extern uint8_t rxData2[8];
+static uint8_t uartRxData[8] = {0};
+
+uint16_t ELCON_Voltage;
+uint16_t ELCON_Current;
+uint8_t ELCON_Status;
+atomic_flag ELCON_FeedbackReceived;
+
+extern bool CAN2_StartCharging;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -90,7 +99,6 @@ static void MX_USART1_UART_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -143,6 +151,8 @@ int main(void)
   MX_TIM6_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+  FDCAN1_Init(&hfdcan1);
+  FDCAN2_Init(&hfdcan2);
   HAL_TIM_Base_Start(&htim2);
   FAULT_HIGH();
 
@@ -151,11 +161,11 @@ int main(void)
   LTC6813_init_cfgb(TOTAL_IC, IC);
 
   for (uint8_t ic_idx = 0; ic_idx < TOTAL_IC; ic_idx++) {
-      LTC681x_set_cfgr_uv(ic_idx, IC, UNDERVOLTAGE);
-      LTC681x_set_cfgr_ov(ic_idx, IC, OVERVOLTAGE);
+      LTC6813_set_cfgr_uv(ic_idx, IC, UNDERVOLTAGE);
+      LTC6813_set_cfgr_ov(ic_idx, IC, OVERVOLTAGE);
   }
 
-  LTC681x_wrcfg(TOTAL_IC, IC);
+  LTC6813_wrcfg(TOTAL_IC, IC);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -303,7 +313,6 @@ static void MX_FDCAN1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN FDCAN1_Init 2 */
-
   /* USER CODE END FDCAN1_Init 2 */
 
 }
@@ -327,26 +336,25 @@ static void MX_FDCAN2_Init(void)
   hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;
   hfdcan2.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
   hfdcan2.Init.Mode = FDCAN_MODE_NORMAL;
-  hfdcan2.Init.AutoRetransmission = DISABLE;
+  hfdcan2.Init.AutoRetransmission = ENABLE;
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
-  hfdcan2.Init.NominalPrescaler = 16;
+  hfdcan2.Init.NominalPrescaler = 25;
   hfdcan2.Init.NominalSyncJumpWidth = 1;
-  hfdcan2.Init.NominalTimeSeg1 = 1;
-  hfdcan2.Init.NominalTimeSeg2 = 1;
+  hfdcan2.Init.NominalTimeSeg1 = 15;
+  hfdcan2.Init.NominalTimeSeg2 = 4;
   hfdcan2.Init.DataPrescaler = 1;
   hfdcan2.Init.DataSyncJumpWidth = 1;
   hfdcan2.Init.DataTimeSeg1 = 1;
   hfdcan2.Init.DataTimeSeg2 = 1;
   hfdcan2.Init.StdFiltersNbr = 0;
-  hfdcan2.Init.ExtFiltersNbr = 0;
+  hfdcan2.Init.ExtFiltersNbr = 1;
   hfdcan2.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
   if (HAL_FDCAN_Init(&hfdcan2) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN FDCAN2_Init 2 */
-
   /* USER CODE END FDCAN2_Init 2 */
 
 }
@@ -525,32 +533,32 @@ static void MX_SPI3_Init(void)
 
   /* USER CODE END SPI3_Init 1 */
   /* SPI3 parameter configuration*/
-  hspi3.Instance = SPI3;
-  hspi3.Init.Mode = SPI_MODE_MASTER;
-  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi3.Init.CRCPolynomial = 0x7;
-  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  hspi3.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
-  hspi3.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
-  hspi3.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-  hspi3.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
-  hspi3.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-  hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
-  hspi3.Init.IOSwap = SPI_IO_SWAP_DISABLE;
-  hspi3.Init.ReadyMasterManagement = SPI_RDY_MASTER_MANAGEMENT_INTERNALLY;
-  hspi3.Init.ReadyPolarity = SPI_RDY_POLARITY_HIGH;
-  if (HAL_SPI_Init(&hspi3) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	  hspi3.Instance = SPI3;
+	  hspi3.Init.Mode = SPI_MODE_MASTER;
+	  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
+	  hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
+	  hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
+	  hspi3.Init.CLKPhase = SPI_PHASE_2EDGE;
+	  hspi3.Init.NSS = SPI_NSS_SOFT;
+	  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+	  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
+	  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
+	  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+	  hspi3.Init.CRCPolynomial = 0x7;
+	  hspi3.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+	  hspi3.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
+	  hspi3.Init.FifoThreshold = SPI_FIFO_THRESHOLD_08DATA;
+	  hspi3.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
+	  hspi3.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
+	  hspi3.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
+	  hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
+	  hspi3.Init.IOSwap = SPI_IO_SWAP_DISABLE;
+	  hspi3.Init.ReadyMasterManagement = SPI_RDY_MASTER_MANAGEMENT_INTERNALLY;
+	  hspi3.Init.ReadyPolarity = SPI_RDY_POLARITY_HIGH;
+	  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+	  {
+	    Error_Handler();
+	  }
   /* USER CODE BEGIN SPI3_Init 2 */
 
   /* USER CODE END SPI3_Init 2 */
@@ -747,6 +755,46 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
+{
+    if ((RxFifo1ITs & FDCAN_IT_RX_FIFO1_NEW_MESSAGE) != RESET) {
+        // Receive CAN message
+        if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO1, &rxHeader2, rxData2) != HAL_OK) {
+            Error_Handler();
+        }
+
+        // Update feedback variables
+        if (rxHeader2.Identifier == ELCON_BROADCAST_ID) {
+            if (atomic_flag_test_and_set_explicit(&ELCON_FeedbackReceived, memory_order_acquire)) {
+                // Update voltage
+                ELCON_Voltage = (uint16_t)((rxData2[0] << 8) | rxData2[1]);
+                ELCON_Current = (uint16_t)((rxData2[2] << 8) | rxData2[3]);
+                ELCON_Status = rxData2[4];
+
+                atomic_flag_clear_explicit(&ELCON_FeedbackReceived, memory_order_release);
+            }
+        }
+    }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
+{
+    // [ 0x00, 0x04, V1, V0, I1, I0 ]
+    if (uartRxData[0] == 0x00 && uartRxData[1] == 0x04) {
+        // Start chargign
+        ELCON_Voltage = (uint16_t)((uartRxData[2] << 8) | uartRxData[3]);
+        ELCON_Current = (uint16_t)((uartRxData[4] << 8) | uartRxData[5]);
+        CAN2_StartCharging = true;
+    }
+    else if (uartRxData[0] == 0x00 && uartRxData[1] == 0x02) {
+        // Stop charring
+        FDCAN_StopCharging();
+    }
+
+    // Receive next
+    HAL_UART_Receive_IT(&huart1, uartRxData, 6);
+}
+
 /* USER CODE END 4 */
 
  /* MPU Configuration */

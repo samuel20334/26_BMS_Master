@@ -32,9 +32,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_exti.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_fdcan.h \
  ../Middlewares/Third_Party/CMSIS/RTOS2/Include/cmsis_os2.h \
- C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc6813_testing.h \
- C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc681x.h \
- C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc6813.h
+ ../Core/Inc/bms_functions.h \
+ C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc6813.h \
+ C:/Users/smpet/Desktop/26-BMS_Master/Drivers/Elcon/elcon.h
 ../Core/Inc/main.h:
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal.h:
 ../Core/Inc/stm32h5xx_hal_conf.h:
@@ -69,6 +69,6 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_exti.h:
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_fdcan.h:
 ../Middlewares/Third_Party/CMSIS/RTOS2/Include/cmsis_os2.h:
-C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc6813_testing.h:
-C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc681x.h:
+../Core/Inc/bms_functions.h:
 C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc6813.h:
+C:/Users/smpet/Desktop/26-BMS_Master/Drivers/Elcon/elcon.h:

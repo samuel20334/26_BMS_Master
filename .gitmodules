@@ -1,0 +1,3 @@
+[submodule "Drivers/Elcon"]
+	path = Drivers/Elcon
+	url = https://gitlab.com/Curtin-Motorsport-Team/cmt-el-firmware/2025/elcon.git

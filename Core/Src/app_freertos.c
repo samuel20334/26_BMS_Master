@@ -23,8 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stm32h5xx_hal.h"
-#include "ltc6813.h"
-#include "ltc681x.h"
+#include "bms_functions.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,8 +46,16 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 extern cell_asic IC[TOTAL_IC];
-TaskHandle_t measurement_handle;
-TaskHandle_t serial_handle;
+uint16_t max_voltages[CELLS_PER_IC];
+uint16_t min_voltages[CELLS_PER_IC];
+uint16_t max_temps[TEMPS_PER_IC];
+uint16_t min_temps[TEMPS_PER_IC];
+
+uint16_t temps[TOTAL_IC][TEMPS_PER_IC];
+
+bool fault_state = false;
+uint16_t fault_mask = 0;
+FDCAN_TxHeaderTypeDef hTxHeader;
 
 /* USER CODE END Variables */
 /* Definitions for SerialTask */
@@ -56,21 +63,28 @@ osThreadId_t SerialTaskHandle;
 const osThreadAttr_t SerialTask_attributes = {
   .name = "SerialTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 512 * 4
+  .stack_size = 256 * 4
 };
 /* Definitions for MeasurementTask */
 osThreadId_t MeasurementTaskHandle;
 const osThreadAttr_t MeasurementTask_attributes = {
   .name = "MeasurementTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 512 * 4
+  .stack_size = 256 * 4
 };
 /* Definitions for SafetyTask */
 osThreadId_t SafetyTaskHandle;
 const osThreadAttr_t SafetyTask_attributes = {
   .name = "SafetyTask",
-  .priority = (osPriority_t) osPriorityRealtime,
-  .stack_size = 512 * 4
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 256 * 4
+};
+/* Definitions for CANTask */
+osThreadId_t CANTaskHandle;
+const osThreadAttr_t CANTask_attributes = {
+  .name = "CANTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 256 * 4
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -112,6 +126,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of SafetyTask */
   SafetyTaskHandle = osThreadNew(SafetyTask, NULL, &SafetyTask_attributes);
 
+  /* creation of CANTask */
+  CANTaskHandle = osThreadNew(CANTask, NULL, &CANTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -136,8 +153,11 @@ void SerialTask(void *argument)
 
   for(;;)
   {
-	  print_cell_voltages(IC, TOTAL_IC);
-	  print_cell_temps(IC, TOTAL_IC);
+	  print_cell_voltages(TOTAL_IC, IC);
+	  print_cell_temps(TOTAL_IC, IC);	// 26 CODE
+	  //print_temps_25(temps);			// 25 CODE
+
+	  //balance_cells(TOTAL_IC, IC);	// FOR TESTING
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(500));
   }
   /* USER CODE END SerialTask */
@@ -157,32 +177,15 @@ void MeasurementTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  wakeup_idle(TOTAL_IC);
-	  osDelay(1);
+	  // 26 CODE
+	  //read_cell_voltages(TOTAL_IC, IC);
+	  //read_cell_temps(TOTAL_IC, IC);
 
-	  LTC6813_adcv(2, 0, 0);
-	  osDelay(300);  // Wait for ADC to finish
+	  // 25 CODE
+	  read_cell_voltages(TOTAL_IC, IC);
+	  read_temps_25(TOTAL_IC, IC, temps);
 
-	  wakeup_idle(TOTAL_IC);
-	  osDelay(1);
-
-	  LTC681x_rdcv(TOTAL_IC, IC);
-
-
-	  wakeup_idle(TOTAL_IC);
-	  osDelay(1);
-
-	  LTC6813_adax(2, 0);
-	  osDelay(300);  // Wait for ADC to finish
-
-	  wakeup_idle(TOTAL_IC);
-	  osDelay(1);
-
-	  for (int j = 1; j<5; j++) {
-	  LTC681x_rdaux(0, TOTAL_IC, IC);
-	  }
-
-	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(500));
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(10000));
   }
   /* USER CODE END MeasurementTask */
 }
@@ -201,15 +204,37 @@ void SafetyTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    if (check_uv_ov_fault(TOTAL_IC, IC)) {
-    	FAULT_LOW();
-    }
-    if (check_ut_ot_fault(TOTAL_IC, IC, UNDERTEMP, OVERTEMP)) {
+	//fault_state = check_uv_ov_fault(TOTAL_IC, IC, fault_mask) || check_ut_ot_fault(TOTAL_IC, IC, UNDERTEMP, OVERTEMP, fault_mask);
+    if (fault_state) {
     	FAULT_LOW();
     }
     vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
   }
   /* USER CODE END SafetyTask */
+}
+
+/* USER CODE BEGIN Header_CANTask */
+/**
+* @brief Function implementing the CANTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_CANTask */
+void CANTask(void *argument)
+{
+  /* USER CODE BEGIN CANTask */
+  TickType_t lastWakeTime = xTaskGetTickCount();
+  /* Infinite loop */
+  for(;;)
+  {
+	CAN_Logging(&hfdcan1, &hTxHeader);
+	if (fault_state) {
+		FDCAN_SendFault(&hfdcan1, &hTxHeader, fault_mask);
+	}
+	CAN_Charging(fault_state);
+	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
+  }
+  /* USER CODE END CANTask */
 }
 
 /* Private application code --------------------------------------------------*/
