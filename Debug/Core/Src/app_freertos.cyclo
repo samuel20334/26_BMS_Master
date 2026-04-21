@@ -1,6 +1,6 @@
 ../Core/Inc/bms_functions.h:112:20:FAULT_LOW	1
-../Core/Src/app_freertos.c:107:6:MX_FREERTOS_Init	1
-../Core/Src/app_freertos.c:157:6:SerialTask	1
-../Core/Src/app_freertos.c:188:6:MeasurementTask	1
-../Core/Src/app_freertos.c:220:6:SafetyTask	4
-../Core/Src/app_freertos.c:247:6:CANTask	1
+../Core/Src/app_freertos.c:113:6:MX_FREERTOS_Init	1
+../Core/Src/app_freertos.c:165:6:SerialTask	1
+../Core/Src/app_freertos.c:196:6:MeasurementTask	2
+../Core/Src/app_freertos.c:233:6:SafetyTask	4
+../Core/Src/app_freertos.c:261:6:CANTask	1

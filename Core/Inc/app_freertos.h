@@ -59,6 +59,7 @@ extern osThreadId_t MeasurementTaskHandle;
 extern osThreadId_t SafetyTaskHandle;
 extern osThreadId_t CANTaskHandle;
 extern osMutexId_t icLockHandle;
+extern osSemaphoreId_t firstMeasurementHandle;
 
 /* Exported function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */

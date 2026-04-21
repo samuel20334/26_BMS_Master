@@ -55,6 +55,7 @@ uint16_t min_temps[TEMPS_PER_IC];
 
 uint16_t temps[TOTAL_IC][TEMPS_PER_IC];
 
+bool firstMeasurementDone = false;
 bool fault_state = false;
 uint16_t fault_mask = 0;
 FDCAN_TxHeaderTypeDef hTxHeader;
@@ -93,6 +94,11 @@ osMutexId_t icLockHandle;
 const osMutexAttr_t icLock_attributes = {
   .name = "icLock"
 };
+/* Definitions for firstMeasurement */
+osSemaphoreId_t firstMeasurementHandle;
+const osSemaphoreAttr_t firstMeasurement_attributes = {
+  .name = "firstMeasurement"
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -114,6 +120,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
+  /* creation of firstMeasurement */
+  firstMeasurementHandle = osSemaphoreNew(1, 0, &firstMeasurement_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -205,6 +213,11 @@ void MeasurementTask(void *argument)
 	  read_temps_25(TOTAL_IC, IC, temps);
 	  osMutexRelease(icLockHandle);
 
+	  if (!firstMeasurementDone) {
+		  firstMeasurementDone = true;
+		  osSemaphoreRelease(firstMeasurementHandle);
+	  }
+
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END MeasurementTask */
@@ -220,6 +233,7 @@ void MeasurementTask(void *argument)
 void SafetyTask(void *argument)
 {
   /* USER CODE BEGIN SafetyTask */
+  osSemaphoreAcquire(firstMeasurementHandle, osWaitForever);
   TickType_t lastWakeTime = xTaskGetTickCount();
   /* Infinite loop */
   for(;;)

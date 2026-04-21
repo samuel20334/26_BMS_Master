@@ -367,6 +367,7 @@ VP_TIM2_VS_ClockSourceINT.Signal=TIM2_VS_ClockSourceINT
 VP_TIM6_VS_ClockSourceINT.Mode=Enable_Timer
 VP_TIM6_VS_ClockSourceINT.Signal=TIM6_VS_ClockSourceINT
 board=custom
+rtos.0.binarySems.0=allocationType,Dynamic;controlBlockName,NULL;initialState,Depleted;name,firstMeasurement
 rtos.0.ip=STMicroelectronics.X-CUBE-FREERTOS.1.5.0
 rtos.0.mutexes.0=allocationType,Dynamic;controlBlockName,NULL;name,icLock
 rtos.0.tasks.0=allocationType,Dynamic;bufferName,NULL;codeGen,Default;controlBlockName,NULL;entry,SerialTask;name,SerialTask;parameter,NULL;priority,osPriorityNormal;stackSize,256
