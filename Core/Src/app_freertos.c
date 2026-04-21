@@ -36,8 +36,8 @@
 #define TOTAL_IC 10
 #define UNDERVOLTAGE 27000
 #define OVERVOLTAGE 42000
-#define UNDERTEMP 2000
-#define OVERTEMP 29500
+#define UNDERTEMP 25700
+#define OVERTEMP 9900
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
