@@ -164,33 +164,18 @@ void print_cell_temps(uint8_t total_ic, cell_asic *ic)
 
 // FAULT FUNCTIONS
 
-bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t mask) {
+bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint16_t *mask) {
     bool fault = false;
 
     for (uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++) {
-        for (uint8_t byte = 0; byte < 3; byte++) {
-            uint8_t flags = ic[ic_idx].stat.flags[byte];
-
-            // Bits 0-3: UV flags, Bits 4-7: OV flags
-            for (uint8_t bit = 0; bit < 4; bit++) {
-                if (flags & (1 << bit)) {
-                    fault = true;
-                    mask |= FAULT_UNDERVOLTAGE;
-                    uart_print("IC ");
-                    uart_print_uint(ic_idx + 1);
-                    uart_print("Cell ");
-                    uart_print_uint(byte * 4 + bit + 1);
-                    uart_print(": Undervoltage detected\r\n");
-                }
-                if (flags & (1 << (bit + 4))) {
-                    fault = true;
-                    mask |= FAULT_OVERVOLTAGE;
-                    uart_print("IC ");
-                    uart_print_uint(ic_idx + 1);
-                    uart_print("Cell ");
-                    uart_print_uint(byte * 4 + bit + 1);
-                    uart_print(": Overvoltage detected\r\n");
-                }
+        for (uint8_t cell = 0; cell < CELLS_PER_IC; cell++) {
+        	if (ic[ic_idx].cells.c_codes[cell] < uv) {
+        		*mask |= FAULT_UNDERVOLTAGE;
+        		fault = true;
+        	}
+        	else if (ic[ic_idx].cells.c_codes[cell] > ov) {
+            	*mask |= FAULT_OVERVOLTAGE;
+        		fault = true;
             }
         }
     }
@@ -198,7 +183,7 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t mask) {
     return fault;
 }
 
-bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot, uint16_t mask)
+bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot, uint16_t *mask)
 {
     bool fault = false;
 
@@ -206,27 +191,16 @@ bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot
     {
         for(uint8_t ch = 0; ch < TEMPS_PER_IC; ch++)
         {
-            uint16_t temp_mV = code_to_mV(ic[ic_idx].aux.a_codes[ch]);
 
-            if(temp_mV < ut)
+            if(ic[ic_idx].aux.a_codes[ch] > ut)
             {
-                mask |= FAULT_UNDERTEMP;
+                *mask |= FAULT_UNDERTEMP;
                 fault = true;
-            	uart_print("IC ");
-                uart_print_uint(ic_idx);
-                uart_print("Channel ");
-                uart_print_uint(ch);
-                uart_print(": Undertemperature detected\r\n");
             }
-            else if(temp_mV > ot)
+            else if(ic[ic_idx].aux.a_codes[ch] < ot)
             {
-            	mask |= FAULT_OVERTEMP;
-            	fault = false;
-            	uart_print("IC ");
-            	uart_print_uint(ic_idx);
-            	uart_print("Channel ");
-            	uart_print_uint(ch);
-            	uart_print(": Overtemperature detected\r\n");
+            	*mask |= FAULT_OVERTEMP;
+            	fault = true;
             }
         }
     }
@@ -482,7 +456,7 @@ void FDCAN_StopCharging()
     CAN2_Mode = CAN_MODE_NORMAL;
 }
 
-void CAN_Charging(bool fault_state) {
+void CAN_Charging(bool *fault_state) {
 	CAN2_StartCharging = true;
 	if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2) > 0) {
 		if (CAN2_Mode == CAN_MODE_NORMAL) {
@@ -494,7 +468,7 @@ void CAN_Charging(bool fault_state) {
 	    }
 	    else if (CAN2_Mode == CAN_MODE_CHARGING) {
 	    // Stop charging if faulted
-	    	if (fault_state) {
+	    	if (*fault_state) {
 	    		FDCAN_StopCharging();
 	        }
 	    }
@@ -628,7 +602,7 @@ bool select_temp(uint8_t total_ic, cell_asic *ic, uint8_t channel)
 
 void read_temps_25(uint8_t total_ic, cell_asic *ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC])
 {
-    for (int ch = 0; ch < TEMPS_PER_IC; ch++)
+    for (int ch = 1; ch < TEMPS_PER_IC+1; ch++)
     {
         // Select mux channel (all ICs)
     	wakeup_idle(total_ic);

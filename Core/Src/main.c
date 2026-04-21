@@ -40,9 +40,6 @@
 #define CS_GPIO_Port GPIOB
 #define CS_Pin       GPIO_PIN_12
 
-#define UNDERVOLTAGE 2100
-#define OVERVOLTAGE 4400
-
 #define CMD_WRCFGA  0x0001
 #define CMD_ADCV    0x0260
 /* USER CODE END PD */
@@ -159,11 +156,6 @@ int main(void)
   LTC6813_init_reg_limits(TOTAL_IC, IC);
   LTC6813_init_cfg(TOTAL_IC, IC);
   LTC6813_init_cfgb(TOTAL_IC, IC);
-
-  for (uint8_t ic_idx = 0; ic_idx < TOTAL_IC; ic_idx++) {
-      LTC6813_set_cfgr_uv(ic_idx, IC, UNDERVOLTAGE);
-      LTC6813_set_cfgr_ov(ic_idx, IC, OVERVOLTAGE);
-  }
 
   LTC6813_wrcfg(TOTAL_IC, IC);
   /* USER CODE END 2 */
@@ -533,32 +525,32 @@ static void MX_SPI3_Init(void)
 
   /* USER CODE END SPI3_Init 1 */
   /* SPI3 parameter configuration*/
-	  hspi3.Instance = SPI3;
-	  hspi3.Init.Mode = SPI_MODE_MASTER;
-	  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
-	  hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
-	  hspi3.Init.CLKPolarity = SPI_POLARITY_HIGH;
-	  hspi3.Init.CLKPhase = SPI_PHASE_2EDGE;
-	  hspi3.Init.NSS = SPI_NSS_SOFT;
-	  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
-	  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
-	  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
-	  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-	  hspi3.Init.CRCPolynomial = 0x7;
-	  hspi3.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
-	  hspi3.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
-	  hspi3.Init.FifoThreshold = SPI_FIFO_THRESHOLD_08DATA;
-	  hspi3.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-	  hspi3.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
-	  hspi3.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
-	  hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
-	  hspi3.Init.IOSwap = SPI_IO_SWAP_DISABLE;
-	  hspi3.Init.ReadyMasterManagement = SPI_RDY_MASTER_MANAGEMENT_INTERNALLY;
-	  hspi3.Init.ReadyPolarity = SPI_RDY_POLARITY_HIGH;
-	  if (HAL_SPI_Init(&hspi3) != HAL_OK)
-	  {
-	    Error_Handler();
-	  }
+  hspi3.Instance = SPI3;
+  hspi3.Init.Mode = SPI_MODE_MASTER;
+  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi3.Init.NSS = SPI_NSS_SOFT;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi3.Init.CRCPolynomial = 0x7;
+  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi3.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
+  hspi3.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
+  hspi3.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
+  hspi3.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
+  hspi3.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
+  hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
+  hspi3.Init.IOSwap = SPI_IO_SWAP_DISABLE;
+  hspi3.Init.ReadyMasterManagement = SPI_RDY_MASTER_MANAGEMENT_INTERNALLY;
+  hspi3.Init.ReadyPolarity = SPI_RDY_POLARITY_HIGH;
+  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN SPI3_Init 2 */
 
   /* USER CODE END SPI3_Init 2 */

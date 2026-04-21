@@ -34,6 +34,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define TOTAL_IC 10
+#define UNDERVOLTAGE 27000
+#define OVERVOLTAGE 42000
 #define UNDERTEMP 2000
 #define OVERTEMP 29500
 /* USER CODE END PD */
@@ -86,6 +88,11 @@ const osThreadAttr_t CANTask_attributes = {
   .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 256 * 4
 };
+/* Definitions for icLock */
+osMutexId_t icLockHandle;
+const osMutexAttr_t icLock_attributes = {
+  .name = "icLock"
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -101,6 +108,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
+  /* creation of icLock */
+  icLockHandle = osMutexNew(&icLock_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -153,12 +162,18 @@ void SerialTask(void *argument)
 
   for(;;)
   {
+	  osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_voltages(TOTAL_IC, IC);
+	  osMutexRelease(icLockHandle);
+
+	  osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_temps(TOTAL_IC, IC);	// 26 CODE
+	  osMutexRelease(icLockHandle);
+
 	  //print_temps_25(temps);			// 25 CODE
 
 	  //balance_cells(TOTAL_IC, IC);	// FOR TESTING
-	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(500));
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END SerialTask */
 }
@@ -182,10 +197,15 @@ void MeasurementTask(void *argument)
 	  //read_cell_temps(TOTAL_IC, IC);
 
 	  // 25 CODE
+	  osMutexAcquire(icLockHandle, osWaitForever);
 	  read_cell_voltages(TOTAL_IC, IC);
-	  read_temps_25(TOTAL_IC, IC, temps);
+	  osMutexRelease(icLockHandle);
 
-	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(10000));
+	  osMutexAcquire(icLockHandle, osWaitForever);
+	  read_temps_25(TOTAL_IC, IC, temps);
+	  osMutexRelease(icLockHandle);
+
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END MeasurementTask */
 }
@@ -204,11 +224,15 @@ void SafetyTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	//fault_state = check_uv_ov_fault(TOTAL_IC, IC, fault_mask) || check_ut_ot_fault(TOTAL_IC, IC, UNDERTEMP, OVERTEMP, fault_mask);
-    if (fault_state) {
-    	FAULT_LOW();
-    }
-    vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
+	  osMutexAcquire(icLockHandle, osWaitForever);
+	  fault_state = check_uv_ov_fault(TOTAL_IC, IC, UNDERVOLTAGE, OVERVOLTAGE, &fault_mask) || check_ut_ot_fault(TOTAL_IC, IC, UNDERTEMP, OVERTEMP, &fault_mask);
+	  osMutexRelease(icLockHandle);
+
+	  if (fault_state) {
+		  FAULT_LOW();
+	  }
+
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END SafetyTask */
 }
@@ -227,11 +251,13 @@ void CANTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	CAN_Logging(&hfdcan1, &hTxHeader);
+	/*CAN_Logging(&hfdcan1, &hTxHeader);
+
 	if (fault_state) {
 		FDCAN_SendFault(&hfdcan1, &hTxHeader, fault_mask);
 	}
-	CAN_Charging(fault_state);
+
+	CAN_Charging(&fault_state);*/
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
   }
   /* USER CODE END CANTask */
