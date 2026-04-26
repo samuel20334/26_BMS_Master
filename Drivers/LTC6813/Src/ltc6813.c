@@ -106,28 +106,28 @@ HAL_StatusTypeDef spi_read_array(SPI_HandleTypeDef *spi, uint8_t len, uint8_t *b
 
 void uart_print(char *str)
 {
-    //HAL_UART_Transmit(&huart1, (uint8_t*)str, strlen(str), HAL_MAX_DELAY);
+    HAL_UART_Transmit(&huart1, (uint8_t*)str, strlen(str), HAL_MAX_DELAY);
 }
 
 void uart_print_hex(uint8_t val)
 {
-    //char buf[5];
-    //snprintf(buf, sizeof(buf), "%02X ", val);
-    //uart_print(buf);
+    char buf[5];
+    snprintf(buf, sizeof(buf), "%02X ", val);
+    uart_print(buf);
 }
 
 void uart_print_dec(uint16_t val)
 {
-    //char buf[8];
-    //snprintf(buf, sizeof(buf), "%d ", val);
-    //uart_print(buf);
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%d ", val);
+    uart_print(buf);
 }
 
 void uart_print_uint(uint32_t val)
 {
-    //char buf[12]; // Enough for 32-bit uint + null
-    //snprintf(buf, sizeof(buf), "%lu", val);
-    //uart_print(buf);
+    char buf[12]; // Enough for 32-bit uint + null
+    snprintf(buf, sizeof(buf), "%lu", val);
+    uart_print(buf);
 }
 
 /* Wake isoSPI up from IDlE state and enters the READY state */

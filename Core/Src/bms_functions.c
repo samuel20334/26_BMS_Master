@@ -507,7 +507,7 @@ void balance_cells(int8_t total_ic, cell_asic *ic)
             	{
             	    ic[0].config.tx_data[5] |= (1 << (cell - 8));
             	}
-            	    else if (cell < 16) // cells 13–15 only
+            	else if (cell < 16) // cells 13–15 only
             	{
             	    ic[0].configb.tx_data[0] |= (1 << (cell - 12));
             	}
@@ -602,7 +602,7 @@ bool select_temp(uint8_t total_ic, cell_asic *ic, uint8_t channel)
 
 void read_temps_25(uint8_t total_ic, cell_asic *ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC])
 {
-    for (int ch = 1; ch < TEMPS_PER_IC+1; ch++)
+    for (int ch = 0; ch < TEMPS_PER_IC; ch++)
     {
         // Select mux channel (all ICs)
     	wakeup_idle(total_ic);

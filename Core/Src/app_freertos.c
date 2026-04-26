@@ -170,17 +170,19 @@ void SerialTask(void *argument)
 
   for(;;)
   {
-	  osMutexAcquire(icLockHandle, osWaitForever);
+	  /*osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_voltages(TOTAL_IC, IC);
 	  osMutexRelease(icLockHandle);
 
 	  osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_temps(TOTAL_IC, IC);	// 26 CODE
-	  osMutexRelease(icLockHandle);
+	  osMutexRelease(icLockHandle);*/
 
 	  //print_temps_25(temps);			// 25 CODE
 
-	  //balance_cells(TOTAL_IC, IC);	// FOR TESTING
+	  //osMutexAcquire(icLockHandle, osWaitForever);
+	  balance_cells(TOTAL_IC, IC);	// FOR TESTING
+	  //osMutexRelease(icLockHandle);*/
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END SerialTask */

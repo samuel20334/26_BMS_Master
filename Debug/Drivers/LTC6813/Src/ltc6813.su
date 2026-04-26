@@ -7,9 +7,9 @@
 ../Drivers/LTC6813/Src/ltc6813.c:96:19:spi_read_byte	32	static
 ../Drivers/LTC6813/Src/ltc6813.c:102:19:spi_read_array	24	static
 ../Drivers/LTC6813/Src/ltc6813.c:107:6:uart_print	16	static
-../Drivers/LTC6813/Src/ltc6813.c:112:6:uart_print_hex	16	static
-../Drivers/LTC6813/Src/ltc6813.c:119:6:uart_print_dec	16	static
-../Drivers/LTC6813/Src/ltc6813.c:126:6:uart_print_uint	16	static
+../Drivers/LTC6813/Src/ltc6813.c:112:6:uart_print_hex	24	static
+../Drivers/LTC6813/Src/ltc6813.c:119:6:uart_print_dec	24	static
+../Drivers/LTC6813/Src/ltc6813.c:126:6:uart_print_uint	32	static
 ../Drivers/LTC6813/Src/ltc6813.c:134:6:wakeup_idle	40	static
 ../Drivers/LTC6813/Src/ltc6813.c:146:6:wakeup_sleep	24	static
 ../Drivers/LTC6813/Src/ltc6813.c:158:6:cmd_68	24	static
