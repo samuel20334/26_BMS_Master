@@ -27,25 +27,25 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  11 .ARM.attributes 00000036  00000000  00000000  00014060  2**0
                   CONTENTS, READONLY
- 12 .debug_info   0002b81f  00000000  00000000  00014096  2**0
+ 12 .debug_info   0002b7eb  00000000  00000000  00014096  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 00004a69  00000000  00000000  0003f8b5  2**0
+ 13 .debug_abbrev 00004a55  00000000  00000000  0003f881  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_aranges 00002278  00000000  00000000  00044320  2**3
+ 14 .debug_aranges 00002288  00000000  00000000  000442d8  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_rnglists 00001af7  00000000  00000000  00046598  2**0
+ 15 .debug_rnglists 00001b04  00000000  00000000  00046560  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  000378da  00000000  00000000  0004808f  2**0
+ 16 .debug_macro  000378da  00000000  00000000  00048064  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   00029170  00000000  00000000  0007f969  2**0
+ 17 .debug_line   00029184  00000000  00000000  0007f93e  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    00160b22  00000000  00000000  000a8ad9  2**0
+ 18 .debug_str    00160b25  00000000  00000000  000a8ac2  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  002095fb  2**0
+ 19 .comment      00000043  00000000  00000000  002095e7  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  000097d8  00000000  00000000  00209640  2**2
+ 20 .debug_frame  00009828  00000000  00000000  0020962c  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 00000053  00000000  00000000  00212e18  2**0
+ 21 .debug_line_str 00000053  00000000  00000000  00212e54  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -7131,6 +7131,8 @@ void LTC6813_rdaux_reg(uint8_t reg, //Determines which GPIO voltage register is 
  800308c:	200002e0 	.word	0x200002e0
 
 08003090 <parse_cells>:
+	cs_high(CS_PORT, CS_PIN);
+}
 
 /* Helper function that parses voltage measurement registers */
 uint8_t parse_cells(uint8_t ic_idx, uint8_t reg_num, uint8_t *data_ptr, uint16_t *c_codes, uint8_t *pec_match)

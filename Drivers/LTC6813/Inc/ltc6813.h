@@ -384,6 +384,11 @@ void LTC6813_rdaux_reg(  uint8_t reg, //!< Determines which GPIO voltage registe
                          uint8_t *data //!< Array of the unparsed auxiliary codes
                       );
 
+void LTC6813_rdstat_reg(uint8_t reg, //Determines which stat register is read back
+                        uint8_t total_ic, //The number of ICs in the system
+                        uint8_t *data //Array of the unparsed stat codes
+                       );
+
 /*!
  Helper function that parses voltage measurement registers
  @return int8_t, pec_error PEC Status.
@@ -509,6 +514,11 @@ int16_t LTC6813_run_adc_redundancy_st(uint8_t adc_mode, //!< ADC Mode
                                       uint8_t total_ic, //!< Number of ICs in the system
                                       cell_asic *ic //!< A two dimensional array that will store the data
 									  );
+
+uint16_t LTC6813_st_lookup(uint8_t MD, //ADC Mode
+						   uint8_t ST, //Self Test
+						   bool adcopt // ADCOPT bit in the configuration register
+						  );
 
 /*!
  Start an open wire Conversion
@@ -741,7 +751,7 @@ void LTC6813_set_cfgr_adcopt(uint8_t nIC, //!< The number of ICs in the daisy ch
  */
 void LTC6813_set_cfgr_gpio(uint8_t nIC, //!< The number of ICs in the daisy chain
                            cell_asic *ic, //!< A two dimensional array that will store the data
-                           bool gpio[] //!< The GPIO bits
+                           bool gpio[5] //!< The GPIO bits
 						   );
 
 /*!
@@ -750,7 +760,7 @@ void LTC6813_set_cfgr_gpio(uint8_t nIC, //!< The number of ICs in the daisy chai
  */
 void LTC6813_set_cfgr_dis(uint8_t nIC, //!< The number of ICs in the daisy chain
                           cell_asic *ic, //!< A two dimensional array that will store the data
-                          bool dcc[] //!< The DCC bits
+                          bool dcc[12] //!< The DCC bits
 						  );
 
 /*!

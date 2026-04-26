@@ -502,7 +502,7 @@ void LTC6813_adcvax(uint8_t MD, //ADC Mode
 	md_bits = (MD & 0x02) >> 1;
 	cmd[0] = md_bits | 0x04;
 	md_bits = (MD & 0x01) << 7;
-	cmd[1] =  md_bits | ((DCP&0x01)<<4) + 0x6F;
+	cmd[1] =  md_bits | (((DCP&0x01)<<4) + 0x6F);
 
 	cmd_68(cmd);
 }
@@ -726,7 +726,10 @@ int8_t LTC6813_rdstat(uint8_t reg, //Determines which Stat  register is read bac
 			}
 			else if (reg == 2)
 			{
-				parsed_stat = data[data_counter++] + (data[data_counter++]<<8); //Each stat codes is received as two bytes and is combined to
+				parsed_stat = data[data_counter];	//Each stat codes is received as two bytes and is combined to
+				data_counter++;
+				parsed_stat |= (data[data_counter] << 8);
+				data_counter++;
 				ic[c_ic].stat.stat_codes[3] = parsed_stat;
 				ic[c_ic].stat.flags[0] = data[data_counter++];
 				ic[c_ic].stat.flags[1] = data[data_counter++];
@@ -834,6 +837,46 @@ void LTC6813_rdaux_reg(uint8_t reg, //Determines which GPIO voltage register is 
 
 	cs_low(CS_PORT, CS_PIN);
 	spi_write_read(&hspi1, cmd, 4, data,(REG_LEN*total_ic));
+	cs_high(CS_PORT, CS_PIN);
+}
+
+/*
+The function reads a single stat  register and stores the read data
+in the *data point as a byte array. This function is rarely used outside of
+the LTC681x_rdstat() command.
+*/
+void LTC6813_rdstat_reg(uint8_t reg, //Determines which stat register is read back
+                        uint8_t total_ic, //The number of ICs in the system
+                        uint8_t *data //Array of the unparsed stat codes
+                       )
+{
+	const uint8_t REG_LEN = 8; // number of bytes in the register + 2 bytes for the PEC
+	uint8_t cmd[4];
+	uint16_t cmd_pec;
+
+	if (reg == 1)     //Read back status group A
+	{
+		cmd[1] = 0x10;
+		cmd[0] = 0x00;
+	}
+	else if (reg == 2)  //Read back status group B
+	{
+		cmd[1] = 0x12;
+		cmd[0] = 0x00;
+	}
+
+	else          //Read back status group A
+	{
+		cmd[1] = 0x10;
+		cmd[0] = 0x00;
+	}
+
+	cmd_pec = pec15_calc(2, cmd);
+	cmd[2] = (uint8_t)(cmd_pec >> 8);
+	cmd[3] = (uint8_t)(cmd_pec);
+
+	cs_low(CS_PORT, CS_PIN);
+	spi_write_read(&hspi1, cmd, 4, data, (REG_LEN*total_ic));
 	cs_high(CS_PORT, CS_PIN);
 }
 
@@ -1166,10 +1209,10 @@ uint16_t LTC6813_run_adc_overlap(uint8_t total_ic, // Number of ICs in the syste
 	int32_t measure_delta =0;
 	int16_t failure_pos_limit = 20;
 	int16_t failure_neg_limit = -20;
-	uint32_t conv_time=0;
+	//uint32_t conv_time=0;
 	wakeup_idle(total_ic);
 	LTC6813_adol(MD_7KHZ_3KHZ,DCP_DISABLED);
-	conv_time = LTC6813_pollAdc();
+	//conv_time = LTC6813_pollAdc();
 
 	wakeup_idle(total_ic);
 	error = LTC6813_rdcv(0,total_ic,ic);
@@ -1248,6 +1291,53 @@ int16_t LTC6813_run_adc_redundancy_st(uint8_t adc_mode, //ADC Mode
 	return(error);
 }
 
+/* Looks up the result pattern for digital filter self test */
+uint16_t LTC6813_st_lookup(uint8_t MD, //ADC Mode
+						   uint8_t ST, //Self Test
+						   bool adcopt // ADCOPT bit in the configuration register
+						  )
+{
+	uint16_t test_pattern = 0;
+
+    if (MD == 1)
+    {
+		if ( adcopt == false)
+		{
+			if (ST == 1)
+			{
+				test_pattern = 0x9565;
+			}
+			else
+			{
+				test_pattern = 0x6A9A;
+			}
+		}
+		else
+		{
+			if (ST == 1)
+			{
+				test_pattern = 0x9553;
+			}
+			else
+			{
+				test_pattern = 0x6AAC;
+			}
+		}
+    }
+    else
+    {
+		if (ST == 1)
+		{
+		   test_pattern = 0x9555;
+		}
+		else
+		{
+		   test_pattern = 0x6AAA;
+		}
+    }
+    return(test_pattern);
+}
+
 /* Start an open wire Conversion */
 void LTC6813_adow(uint8_t MD,   //ADC Mode
                   uint8_t PUP, //Pull up/Pull down current
@@ -1294,9 +1384,9 @@ void LTC6813_run_openwire_single(uint8_t total_ic, // Number of ICs in the syste
 	uint16_t pullDwn[total_ic][N_CHANNELS];
 	int16_t openWire_delta[total_ic][N_CHANNELS];
 
-	int8_t error;
+	//int8_t error;
 	int8_t i;
-	uint32_t conv_time=0;
+	//uint32_t conv_time=0;
 
 	wakeup_sleep(total_ic);
 	LTC6813_clrcell();
@@ -1306,11 +1396,11 @@ void LTC6813_run_openwire_single(uint8_t total_ic, // Number of ICs in the syste
 	{
 	  wakeup_idle(total_ic);
 	  LTC6813_adow(MD_26HZ_2KHZ,PULL_UP_CURRENT,CELL_CH_ALL,DCP_DISABLED);
-	  conv_time =LTC6813_pollAdc();
+	  //conv_time =LTC6813_pollAdc();
 	}
 
 	wakeup_idle(total_ic);
-	error=LTC6813_rdcv(0,total_ic,ic);
+	//error=LTC6813_rdcv(0,total_ic,ic);
 
 	for (int cic=0; cic<total_ic; cic++)
 	{
@@ -1325,11 +1415,11 @@ void LTC6813_run_openwire_single(uint8_t total_ic, // Number of ICs in the syste
 	{
 	  wakeup_idle(total_ic);
 	  LTC6813_adow(MD_26HZ_2KHZ,PULL_DOWN_CURRENT,CELL_CH_ALL,DCP_DISABLED);
-	  conv_time =LTC6813_pollAdc();
+	  //conv_time =LTC6813_pollAdc();
 	}
 
 	wakeup_idle(total_ic);
-	error=LTC6813_rdcv(0,total_ic,ic);
+	//error=LTC6813_rdcv(0,total_ic,ic);
 
 	for (int cic=0; cic<total_ic; cic++)
 	{
@@ -1384,11 +1474,11 @@ void LTC6813_run_openwire_multi(uint8_t total_ic, // Number of ICs in the system
 	uint16_t pullDwn[total_ic][N_CHANNELS];
 	uint16_t openWire_delta[total_ic][N_CHANNELS];
 
-	int8_t error;
+	//int8_t error;
 	int8_t opencells[N_CHANNELS];
 	int8_t n=0;
 	int8_t i,j,k;
-	uint32_t conv_time=0;
+	//uint32_t conv_time=0;
 
 	wakeup_sleep(total_ic);
 	LTC6813_clrcell();
@@ -1398,11 +1488,11 @@ void LTC6813_run_openwire_multi(uint8_t total_ic, // Number of ICs in the system
 	{
 		wakeup_idle(total_ic);
 		LTC6813_adow(MD_26HZ_2KHZ,PULL_UP_CURRENT,CELL_CH_ALL,DCP_DISABLED);
-		conv_time =LTC6813_pollAdc();
+		//conv_time =LTC6813_pollAdc();
 	}
 
 	wakeup_idle(total_ic);
-	error = LTC6813_rdcv(0,total_ic,ic);
+	//error = LTC6813_rdcv(0,total_ic,ic);
 
 	for (int cic=0; cic<total_ic; cic++)
 	{
@@ -1417,11 +1507,11 @@ void LTC6813_run_openwire_multi(uint8_t total_ic, // Number of ICs in the system
 	{
 	  wakeup_idle(total_ic);
 	  LTC6813_adow(MD_26HZ_2KHZ,PULL_DOWN_CURRENT,CELL_CH_ALL,DCP_DISABLED);
-	  conv_time =   LTC6813_pollAdc();
+	  //conv_time =   LTC6813_pollAdc();
 	}
 
 	wakeup_idle(total_ic);
-	error = LTC6813_rdcv(0,total_ic,ic);
+	//error = LTC6813_rdcv(0,total_ic,ic);
 
 	for (int cic=0; cic<total_ic; cic++)
 	{
@@ -1452,7 +1542,7 @@ void LTC6813_run_openwire_multi(uint8_t total_ic, // Number of ICs in the system
 
 		char cicbuf[16];
 		sprintf(cicbuf, "%d", cic+1);
-		HAL_UART_Transmit(&huart1, "IC:", 3, HAL_MAX_DELAY);
+		HAL_UART_Transmit(&huart1, (uint8_t *)"IC:", 3, HAL_MAX_DELAY);
 		HAL_UART_Transmit(&huart1, (uint8_t *)cicbuf, strlen(cicbuf), HAL_MAX_DELAY);
 
 		for (int cell=0; cell<N_CHANNELS; cell++)
@@ -1481,7 +1571,7 @@ void LTC6813_run_openwire_multi(uint8_t total_ic, // Number of ICs in the system
 		{
 		  opencells[n] = 0;
 		  HAL_UART_Transmit(&huart1,
-				  	  	  	"Cell 0 is Open and multiple open wires maybe possible.",
+				  	  	  	(uint8_t *)"Cell 0 is Open and multiple open wires maybe possible.",
 							strlen("Cell 0 is Open and multiple open wires maybe possible."),
 							HAL_MAX_DELAY
 		  	  	  	  	    );
@@ -1534,14 +1624,14 @@ void LTC6813_run_openwire_multi(uint8_t total_ic, // Number of ICs in the system
 	//Checking the value of n
 		char nbuf[16];
 		sprintf(nbuf, "%d", n);
-		HAL_UART_Transmit(&huart1, "Number of Open wires:", strlen("Number of Open wires:"), HAL_MAX_DELAY);
+		HAL_UART_Transmit(&huart1, (uint8_t *)"Number of Open wires:", strlen("Number of Open wires:"), HAL_MAX_DELAY);
 		HAL_UART_Transmit(&huart1, (uint8_t *)nbuf, strlen(nbuf), HAL_MAX_DELAY);
 
 	//Printing open cell array
-		HAL_UART_Transmit(&huart1, "OPEN CELLS:", strlen("OPEN CELLS:"), HAL_MAX_DELAY);
+		HAL_UART_Transmit(&huart1, (uint8_t *)"OPEN CELLS:", strlen("OPEN CELLS:"), HAL_MAX_DELAY);
 		if(n==0)
 		{
-			HAL_UART_Transmit(&huart1, "No Open wires", strlen("No Open wires"), HAL_MAX_DELAY);
+			HAL_UART_Transmit(&huart1, (uint8_t *)"No Open wires", strlen("No Open wires"), HAL_MAX_DELAY);
 		}
 		else
 		{
@@ -1553,7 +1643,7 @@ void LTC6813_run_openwire_multi(uint8_t total_ic, // Number of ICs in the system
 			}
 		}
 	}
-	HAL_UART_Transmit(&huart1, "\r\n", strlen("\r\n"), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart1, (uint8_t *)"\r\n", strlen("\r\n"), HAL_MAX_DELAY);
 }
 
 /* Runs open wire for GPIOs */
@@ -1568,9 +1658,9 @@ void LTC6813_run_gpio_openwire(uint8_t total_ic, // Number of ICs in the system
 	uint16_t pDwn[total_ic][N_CHANNELS];
 	uint16_t ow_delta[total_ic][N_CHANNELS];
 
-	int8_t error;
+	//int8_t error;
 	int8_t i;
-	uint32_t conv_time=0;
+	//uint32_t conv_time=0;
 
 	wakeup_sleep(total_ic);
 	LTC6813_clraux();
@@ -1579,11 +1669,11 @@ void LTC6813_run_gpio_openwire(uint8_t total_ic, // Number of ICs in the system
 	{
 	   wakeup_idle(total_ic);
 	   LTC6813_adax(MD_7KHZ_3KHZ, AUX_CH_ALL);
-	   conv_time= LTC6813_pollAdc();
+	   //conv_time= LTC6813_pollAdc();
 	}
 
 	wakeup_idle(total_ic);
-	error = LTC6813_rdaux(0, total_ic,ic);
+	//error = LTC6813_rdaux(0, total_ic,ic);
 
 	for (int cic=0; cic<total_ic; cic++)
 	{
@@ -1599,11 +1689,11 @@ void LTC6813_run_gpio_openwire(uint8_t total_ic, // Number of ICs in the system
 	{
 	   wakeup_idle(total_ic);
 	   LTC6813_axow(MD_7KHZ_3KHZ,PULL_DOWN_CURRENT);
-	   conv_time =LTC6813_pollAdc();
+	   //conv_time =LTC6813_pollAdc();
 	}
 
 	wakeup_idle(total_ic);
-	error = LTC6813_rdaux(0, total_ic,ic);
+	//error = LTC6813_rdaux(0, total_ic,ic);
 
 	for (int cic=0; cic<total_ic; cic++)
 	{
@@ -1744,7 +1834,7 @@ int8_t LTC6813_rdpwm(uint8_t total_ic, //Number of ICs in the system
 				     cell_asic *ic //A two dimensional array that the function stores the read configuration data.
 				    )
 {
-	const uint8_t BYTES_IN_REG = 8;
+	//const uint8_t BYTES_IN_REG = 8;
 	uint8_t cmd[4];
 	uint8_t read_buffer[256];
 	int8_t pec_error = 0;
