@@ -374,3 +374,4 @@ rtos.0.tasks.0=allocationType,Dynamic;bufferName,NULL;codeGen,Default;controlBlo
 rtos.0.tasks.1=allocationType,Dynamic;bufferName,NULL;codeGen,Default;controlBlockName,NULL;entry,MeasurementTask;name,MeasurementTask;parameter,NULL;priority,osPriorityNormal;stackSize,256
 rtos.0.tasks.2=allocationType,Dynamic;bufferName,NULL;codeGen,Default;controlBlockName,NULL;entry,SafetyTask;name,SafetyTask;parameter,NULL;priority,osPriorityNormal;stackSize,256
 rtos.0.tasks.3=allocationType,Dynamic;bufferName,NULL;codeGen,Default;controlBlockName,NULL;entry,CANTask;name,CANTask;parameter,NULL;priority,osPriorityNormal;stackSize,256
+rtos.0.tasks.4=allocationType,Dynamic;bufferName,NULL;codeGen,Default;controlBlockName,NULL;entry,BalancingTask;name,BalancingTask;parameter,NULL;priority,osPriorityNormal;stackSize,256

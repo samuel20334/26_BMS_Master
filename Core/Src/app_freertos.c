@@ -38,6 +38,8 @@
 #define OVERVOLTAGE 42000
 #define UNDERTEMP 25700
 #define OVERTEMP 9900
+
+#define TARGET_VOLTAGE 28000		// Voltage to balance to
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -59,6 +61,8 @@ bool firstMeasurementDone = false;
 bool fault_state = false;
 uint16_t fault_mask = 0;
 FDCAN_TxHeaderTypeDef hTxHeader;
+
+uint8_t balancingDone = 0;
 
 /* USER CODE END Variables */
 /* Definitions for SerialTask */
@@ -86,6 +90,13 @@ const osThreadAttr_t SafetyTask_attributes = {
 osThreadId_t CANTaskHandle;
 const osThreadAttr_t CANTask_attributes = {
   .name = "CANTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 256 * 4
+};
+/* Definitions for BalancingTask */
+osThreadId_t BalancingTaskHandle;
+const osThreadAttr_t BalancingTask_attributes = {
+  .name = "BalancingTask",
   .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 256 * 4
 };
@@ -146,6 +157,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of CANTask */
   CANTaskHandle = osThreadNew(CANTask, NULL, &CANTask_attributes);
 
+  /* creation of BalancingTask */
+  BalancingTaskHandle = osThreadNew(BalancingTask, NULL, &BalancingTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -170,19 +184,16 @@ void SerialTask(void *argument)
 
   for(;;)
   {
-	  /*osMutexAcquire(icLockHandle, osWaitForever);
+	  osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_voltages(TOTAL_IC, IC);
 	  osMutexRelease(icLockHandle);
 
-	  osMutexAcquire(icLockHandle, osWaitForever);
+	  /*osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_temps(TOTAL_IC, IC);	// 26 CODE
 	  osMutexRelease(icLockHandle);*/
 
-	  //print_temps_25(temps);			// 25 CODE
+	  print_temps_25(temps);			// 25 CODE
 
-	  //osMutexAcquire(icLockHandle, osWaitForever);
-	  balance_cells(TOTAL_IC, IC);	// FOR TESTING
-	  //osMutexRelease(icLockHandle);*/
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END SerialTask */
@@ -277,6 +288,30 @@ void CANTask(void *argument)
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
   }
   /* USER CODE END CANTask */
+}
+
+/* USER CODE BEGIN Header_BalancingTask */
+/**
+* @brief Function implementing the BalancingTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_BalancingTask */
+void BalancingTask(void *argument)
+{
+  /* USER CODE BEGIN BalancingTask */
+  TickType_t lastWakeTime = xTaskGetTickCount();
+  /* Infinite loop */
+  for(;;)
+  {
+	  osMutexAcquire(icLockHandle, osWaitForever);
+	  if (!balancingDone) {
+		  balancingDone = balance_cells(TOTAL_IC, IC, TARGET_VOLTAGE);
+	  }
+	  osMutexRelease(icLockHandle);
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
+  }
+  /* USER CODE END BalancingTask */
 }
 
 /* Private application code --------------------------------------------------*/

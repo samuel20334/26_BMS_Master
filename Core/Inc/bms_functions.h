@@ -18,7 +18,6 @@
 #define FAULT_OVERVOLTAGE   (1 << 1)
 #define FAULT_UNDERTEMP     (1 << 2)
 #define FAULT_OVERTEMP      (1 << 3)
-#define TARGET_VOLTAGE		28000
 
 extern FDCAN_HandleTypeDef hfdcan1;
 extern FDCAN_HandleTypeDef hfdcan2;
@@ -92,7 +91,7 @@ void FDCAN_StopCharging();
 
 void CAN_Charging(bool *fault_state);
 
-void balance_cells(int8_t total_ic, cell_asic *ic);
+uint8_t balance_cells(int8_t total_ic, cell_asic *ic, uint16_t target_voltage);
 
 bool select_temp(uint8_t total_ic, cell_asic *ic, uint8_t channel);
 

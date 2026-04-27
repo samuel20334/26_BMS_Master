@@ -1,4 +1,4 @@
-../Core/Inc/bms_functions.h:120:20:packU16	16	static
+../Core/Inc/bms_functions.h:119:20:packU16	16	static
 ../Core/Src/bms_functions.c:24:10:code_to_mV	16	static
 ../Core/Src/bms_functions.c:31:9:ntc_to_temp	16	static
 ../Core/Src/bms_functions.c:35:10:voltage_analytics	40	static
@@ -20,7 +20,7 @@
 ../Core/Src/bms_functions.c:423:6:FDCAN_StartCharging	8	static
 ../Core/Src/bms_functions.c:441:6:FDCAN_StopCharging	8	static
 ../Core/Src/bms_functions.c:459:6:CAN_Charging	16	static
-../Core/Src/bms_functions.c:481:6:balance_cells	32	static
-../Core/Src/bms_functions.c:540:6:select_temp	40	static
-../Core/Src/bms_functions.c:603:6:read_temps_25	32	static
-../Core/Src/bms_functions.c:634:6:print_temps_25	24	static
+../Core/Src/bms_functions.c:481:9:balance_cells	32	static
+../Core/Src/bms_functions.c:532:6:select_temp	40	static
+../Core/Src/bms_functions.c:595:6:read_temps_25	32	static
+../Core/Src/bms_functions.c:626:6:print_temps_25	24	static

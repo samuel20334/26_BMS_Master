@@ -478,62 +478,54 @@ void CAN_Charging(bool *fault_state) {
 
 // BALANCING FUNCTIONS
 
-void balance_cells(int8_t total_ic, cell_asic *ic)
+uint8_t balance_cells(int8_t total_ic, cell_asic *ic, uint16_t target_voltage)
 {
-    uint8_t done = 0;
+    uint8_t done = 1;
 
-    while (!done)
+    // clear all the dcc bits
+    for (int ic_idx = 0; ic_idx < total_ic; ic_idx++) {
+    	ic[ic_idx].config.tx_data[4] = 0x00;		// dcc for cells 1-8
+    	ic[ic_idx].config.tx_data[5] = 0x00;		// dcc for cells 9-12 (& dcto)
+    	ic[ic_idx].configb.tx_data[0] = 0x00;	// dcc for cells 13-16
+    	ic[ic_idx].configb.tx_data[1] = 0x00;	// dcc for cells 17-18
+
+    	ic[ic_idx].config.tx_data[0] |= (1 << 2); // enable refon
+    }
+
+    for (int ic_idx = 0; ic_idx < total_ic; ic_idx++)
     {
-        done = 1;
-
-        // clear all the dcc bits
-        ic[0].config.tx_data[4] = 0x00;		// dcc for cells 1-8
-        ic[0].config.tx_data[5] = 0x00;		// dcc for cells 9-12 (& dcto)
-        ic[0].configb.tx_data[0] = 0x00;	// dcc for cells 13-16
-        ic[0].configb.tx_data[1] = 0x00;	// dcc for cells 17-18
-
-        // enable refon
-        ic[0].config.tx_data[0] |= (1 << 2);
-
-        for (int ic_idx = 0; ic_idx < total_ic; ic_idx++)
+        for (int cell = 0; cell < CELLS_PER_IC; cell++)
         {
-            for (int cell = 0; cell < CELLS_PER_IC; cell++)
-            {
+        	if (ic[ic_idx].cells.c_codes[cell] > target_voltage) {
             	if (cell < 8)
             	{
-            		ic[0].config.tx_data[4] |= (1 << cell);
+            		ic[ic_idx].config.tx_data[4] |= (1 << cell);
             	}
             	else if (cell < 12)
             	{
-            	    ic[0].config.tx_data[5] |= (1 << (cell - 8));
+            		ic[ic_idx].config.tx_data[5] |= (1 << (cell - 8));
             	}
             	else if (cell < 16) // cells 13–15 only
             	{
-            	    ic[0].configb.tx_data[0] |= (1 << (cell - 12));
+            		ic[ic_idx].configb.tx_data[0] |= (1 << (cell - 12));
             	}
-            		done = 0;
+            	done = 0;
             }
-        }
-        wakeup_idle(TOTAL_IC);
-        HAL_Delay(2);
-
-        LTC6813_wrcfg(total_ic, ic);
-        HAL_Delay(2);
-
-        LTC6813_wrcfgb(total_ic, ic);
-        HAL_Delay(2);
-
-        HAL_Delay(200);
+         }
     }
 
-    // clear all dcc bits
-	ic[0].config.tx_data[4] = 0x00;
-    ic[0].config.tx_data[5] = 0x00;
-    ic[0].configb.tx_data[0] = 0x00;
-    ic[0].configb.tx_data[1] = 0x00;
+    wakeup_idle(TOTAL_IC);
+    HAL_Delay(2);
 
     LTC6813_wrcfg(total_ic, ic);
+    HAL_Delay(2);
+
     LTC6813_wrcfgb(total_ic, ic);
+    HAL_Delay(2);
+
+    HAL_Delay(200);
+
+    return done;
 }
 
 // MULTIPLEXING FUNCTIONS (FOR CMT25)
