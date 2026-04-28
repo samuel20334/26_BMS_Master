@@ -4,4 +4,4 @@
 ../Core/Src/app_freertos.c:209:6:MeasurementTask	2
 ../Core/Src/app_freertos.c:246:6:SafetyTask	4
 ../Core/Src/app_freertos.c:274:6:CANTask	1
-../Core/Src/app_freertos.c:300:6:BalancingTask	2
+../Core/Src/app_freertos.c:300:6:BalancingTask	1

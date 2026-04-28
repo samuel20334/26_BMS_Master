@@ -184,15 +184,15 @@ void SerialTask(void *argument)
 
   for(;;)
   {
-	  osMutexAcquire(icLockHandle, osWaitForever);
+	  /*osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_voltages(TOTAL_IC, IC);
-	  osMutexRelease(icLockHandle);
+	  osMutexRelease(icLockHandle);*/
 
 	  /*osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_temps(TOTAL_IC, IC);	// 26 CODE
 	  osMutexRelease(icLockHandle);*/
 
-	  print_temps_25(temps);			// 25 CODE
+	  //print_temps_25(temps);			// 25 CODE
 
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
@@ -306,7 +306,7 @@ void BalancingTask(void *argument)
   {
 	  osMutexAcquire(icLockHandle, osWaitForever);
 	  if (!balancingDone) {
-		  balancingDone = balance_cells(TOTAL_IC, IC, TARGET_VOLTAGE);
+		  //balancingDone = balance_cells(TOTAL_IC, IC, TARGET_VOLTAGE);
 	  }
 	  osMutexRelease(icLockHandle);
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
