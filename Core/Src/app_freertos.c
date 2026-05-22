@@ -77,7 +77,7 @@ osThreadId_t MeasurementTaskHandle;
 const osThreadAttr_t MeasurementTask_attributes = {
   .name = "MeasurementTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 256 * 4
+  .stack_size = 1024 * 4
 };
 /* Definitions for SafetyTask */
 osThreadId_t SafetyTaskHandle;
@@ -220,9 +220,6 @@ void MeasurementTask(void *argument)
 	  // 25 CODE
 	  osMutexAcquire(icLockHandle, osWaitForever);
 	  read_cell_voltages(TOTAL_IC, IC);
-	  osMutexRelease(icLockHandle);
-
-	  osMutexAcquire(icLockHandle, osWaitForever);
 	  read_temps_25(TOTAL_IC, IC, temps);
 	  osMutexRelease(icLockHandle);
 
@@ -252,7 +249,7 @@ void SafetyTask(void *argument)
   for(;;)
   {
 	  osMutexAcquire(icLockHandle, osWaitForever);
-	  fault_state = check_uv_ov_fault(TOTAL_IC, IC, UNDERVOLTAGE, OVERVOLTAGE, &fault_mask) || check_ut_ot_fault(TOTAL_IC, IC, UNDERTEMP, OVERTEMP, &fault_mask);
+	  fault_state = check_uv_ov_fault(TOTAL_IC, IC, UNDERVOLTAGE, OVERVOLTAGE, &fault_mask) || check_ut_ot_fault(TOTAL_IC, temps, UNDERTEMP, OVERTEMP, &fault_mask);
 	  osMutexRelease(icLockHandle);
 
 	  if (fault_state) {

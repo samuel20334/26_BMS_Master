@@ -22,5 +22,5 @@
 ../Core/Src/bms_functions.c:459:6:CAN_Charging	16	static
 ../Core/Src/bms_functions.c:481:9:balance_cells	32	static
 ../Core/Src/bms_functions.c:532:6:select_temp	40	static
-../Core/Src/bms_functions.c:595:6:read_temps_25	32	static
-../Core/Src/bms_functions.c:626:6:print_temps_25	24	static
+../Core/Src/bms_functions.c:605:6:read_temps_25	32	static
+../Core/Src/bms_functions.c:630:6:print_temps_25	24	static

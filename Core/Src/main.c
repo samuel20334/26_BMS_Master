@@ -73,6 +73,8 @@ static uint8_t uartRxData[8] = {0};
 
 uint16_t ELCON_Voltage;
 uint16_t ELCON_Current;
+uint16_t ELCON_MaxVoltage = 5800;
+uint16_t ELCON_MaxCurrent = 70;
 uint8_t ELCON_Status;
 atomic_flag ELCON_FeedbackReceived;
 
@@ -153,10 +155,11 @@ int main(void)
   HAL_TIM_Base_Start(&htim2);
   FAULT_HIGH();
 
+  wakeup_sleep(TOTAL_IC);
+  wakeup_idle(TOTAL_IC);
   LTC6813_init_reg_limits(TOTAL_IC, IC);
   LTC6813_init_cfg(TOTAL_IC, IC);
   LTC6813_init_cfgb(TOTAL_IC, IC);
-
   LTC6813_wrcfg(TOTAL_IC, IC);
   /* USER CODE END 2 */
 
@@ -841,6 +844,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
+  if (htim->Instance == TIM6) {
+        // Send charger message
+    FDCAN_SendChargerMessage(ELCON_MaxVoltage, ELCON_MaxCurrent, 0);
+  }
 
   /* USER CODE END Callback 1 */
 }
