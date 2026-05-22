@@ -167,7 +167,7 @@ void print_cell_temps(uint8_t total_ic, cell_asic *ic)
 bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint16_t *mask) {
     bool fault = false;
 
-    for (uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++) {
+    for (uint8_t ic_idx = 0; ic_idx < 9; ic_idx++) {
         for (uint8_t cell = 0; cell < CELLS_PER_IC; cell++) {
         	if (ic[ic_idx].cells.c_codes[cell] < uv) {
         		*mask |= FAULT_UNDERVOLTAGE;
@@ -183,21 +183,21 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     return fault;
 }
 
-bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot, uint16_t *mask)
+bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint16_t *mask)
 {
     bool fault = false;
 
-    for(uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++)
+    for(uint8_t ic_idx = 0; ic_idx < 9; ic_idx++)
     {
-        for(uint8_t ch = 0; ch < TEMPS_PER_IC; ch++)
+        for(uint8_t ch = 1; ch < TEMPS_PER_IC; ch++)
         {
 
-            if(ic[ic_idx].aux.a_codes[ch] > ut)
+            if(temps[ic_idx][ch] > ut)
             {
                 *mask |= FAULT_UNDERTEMP;
                 fault = true;
             }
-            else if(ic[ic_idx].aux.a_codes[ch] < ot)
+            else if(temps[ic_idx][ch] < ot)
             {
             	*mask |= FAULT_OVERTEMP;
             	fault = true;
@@ -531,7 +531,7 @@ uint8_t balance_cells(int8_t total_ic, cell_asic *ic, uint16_t target_voltage)
 // MULTIPLEXING FUNCTIONS (FOR CMT25)
 bool select_temp(uint8_t total_ic, cell_asic *ic, uint8_t channel)
 {
-    const uint8_t mux_addr_1 = 0x98;
+	const uint8_t mux_addr_1 = 0x98;
     const uint8_t mux_addr_2 = 0x9A;
 
     uint8_t mask1 = 0;
@@ -549,9 +549,12 @@ bool select_temp(uint8_t total_ic, cell_asic *ic, uint8_t channel)
     uint8_t ICOM0 = 6, ICOM1 = 0, ICOM2 = 7;
     uint8_t FCOM0 = 8, FCOM1 = 9, FCOM2 = 0;
 
-    // ---------- MUX 1 ----------
+    wakeup_sleep(total_ic);
+
     for (uint8_t current_ic = 0; current_ic < total_ic; current_ic++)
     {
+    	memset(ic[current_ic].com.tx_data, 0, 6);
+
         uint8_t d0 = mux_addr_1;
         uint8_t d1 = mask1;
         uint8_t d2 = 0x00;
@@ -566,12 +569,16 @@ bool select_temp(uint8_t total_ic, cell_asic *ic, uint8_t channel)
         ic[current_ic].com.tx_data[5] = (d2 << 4) | FCOM2;
     }
 
-    LTC6813_wrcomm(total_ic, ic);
-    LTC6813_stcomm(3);
+    wakeup_idle(total_ic);
 
-    // ---------- MUX 2 ----------
+    LTC6813_wrcomm(total_ic, ic);
+    LTC6813_stcomm(total_ic);
+    delay_m(10);
+
     for (uint8_t current_ic = 0; current_ic < total_ic; current_ic++)
     {
+    	memset(ic[current_ic].com.tx_data, 0, 6);
+
         uint8_t d0 = mux_addr_2;
         uint8_t d1 = mask2;
         uint8_t d2 = 0x00;
@@ -586,8 +593,11 @@ bool select_temp(uint8_t total_ic, cell_asic *ic, uint8_t channel)
         ic[current_ic].com.tx_data[5] = (d2 << 4) | FCOM2;
     }
 
+    wakeup_idle(total_ic);
+
     LTC6813_wrcomm(total_ic, ic);
-    LTC6813_stcomm(3);
+    LTC6813_stcomm(total_ic);
+    delay_m(10);
 
     return true;
 }
@@ -601,18 +611,12 @@ void read_temps_25(uint8_t total_ic, cell_asic *ic, uint16_t temps[TOTAL_IC][TEM
 
     	select_temp(total_ic, ic, ch);
 
-        /*HAL_Delay(2);
-
-        wakeup_idle(total_ic);
-        HAL_Delay(1); */
-
-        LTC6813_adax(2, 0);
-
         HAL_Delay(5);
 
         wakeup_idle(total_ic);
-        HAL_Delay(1);
+        LTC6813_adax(MD_422HZ_1KHZ, 0);
 
+        LTC6813_pollAdc();
         LTC6813_rdaux(1, total_ic, ic);
 
         // Store for ALL ICs

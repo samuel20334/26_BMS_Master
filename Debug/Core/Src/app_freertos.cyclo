@@ -2,6 +2,6 @@
 ../Core/Src/app_freertos.c:124:6:MX_FREERTOS_Init	1
 ../Core/Src/app_freertos.c:179:6:SerialTask	1
 ../Core/Src/app_freertos.c:209:6:MeasurementTask	2
-../Core/Src/app_freertos.c:246:6:SafetyTask	4
-../Core/Src/app_freertos.c:274:6:CANTask	1
-../Core/Src/app_freertos.c:300:6:BalancingTask	1
+../Core/Src/app_freertos.c:243:6:SafetyTask	4
+../Core/Src/app_freertos.c:271:6:CANTask	1
+../Core/Src/app_freertos.c:297:6:BalancingTask	1

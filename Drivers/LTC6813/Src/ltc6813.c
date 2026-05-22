@@ -221,7 +221,7 @@ int8_t read_68( uint8_t total_ic, // Number of ICs in the system
 {
 	const uint8_t BYTES_IN_REG = 8;
 	uint8_t cmd[4];
-	uint8_t data[BYTES_IN_REG*total_ic];
+	uint8_t data[256];
 	int8_t pec_error = 0;
 	uint16_t cmd_pec;
 	uint16_t data_pec;
@@ -239,6 +239,10 @@ int8_t read_68( uint8_t total_ic, // Number of ICs in the system
 
 	for (uint8_t current_ic = 0; current_ic < total_ic; current_ic++) //Executes for each LTC681x in the daisy chain and packs the data
 	{																//into the rx_data array as well as check the received data for any bit errors
+		for (uint8_t current_byte = 0; current_byte < 6; current_byte++)
+		{
+			rx_data[(current_ic*8)+current_byte] = data[current_byte + (current_ic*BYTES_IN_REG)];
+		}
 		received_pec = (rx_data[(current_ic*8)+6]<<8) + rx_data[(current_ic*8)+7];
 		data_pec = pec15_calc(6, &rx_data[current_ic*8]);
 
@@ -246,11 +250,6 @@ int8_t read_68( uint8_t total_ic, // Number of ICs in the system
 				{
 				  pec_error = -1;
 				}
-
-		for (uint8_t current_byte = 0; current_byte < 6; current_byte++)
-		{
-			rx_data[(current_ic*6)+current_byte] = data[current_byte + (current_ic*BYTES_IN_REG)];
-		}
 	}
 
 	return(pec_error);
@@ -583,7 +582,7 @@ int8_t LTC6813_rdaux(uint8_t reg, //Determines which GPIO voltage register is re
 				{
 				  c_ic = total_ic - current_ic - 1;
 				}
-				pec_error = parse_cells(0, reg,
+				pec_error = parse_cells(current_ic, gpio_reg,
 				                        &data[current_ic * NUM_RX_BYT],
 				                        &ic[c_ic].aux.a_codes[0],
 				                        &ic[c_ic].aux.pec_match[0]);
@@ -604,7 +603,7 @@ int8_t LTC6813_rdaux(uint8_t reg, //Determines which GPIO voltage register is re
 			{
 			c_ic = total_ic - current_ic - 1;
 			}
-			pec_error = parse_cells(0, reg,
+			pec_error = parse_cells(current_ic, reg,
 			                        &data[current_ic * NUM_RX_BYT],
 			                        &ic[c_ic].aux.a_codes[0],
 			                        &ic[c_ic].aux.pec_match[0]);
@@ -801,7 +800,7 @@ void LTC6813_rdaux_reg(uint8_t reg, //Determines which GPIO voltage register is 
                        uint8_t *data //Array of the unparsed auxiliary codes
                       )
 {
-	const uint8_t REG_LEN = 6; // Number of bytes in the register + 2 bytes for the PEC
+	const uint8_t REG_LEN = 8; // Number of bytes in the register + 2 bytes for the PEC
 	uint8_t cmd[4];
 	uint16_t cmd_pec;
 
@@ -836,7 +835,11 @@ void LTC6813_rdaux_reg(uint8_t reg, //Determines which GPIO voltage register is 
 	cmd[3] = (uint8_t)(cmd_pec);
 
 	cs_low(CS_PORT, CS_PIN);
-	spi_write_read(&hspi1, cmd, 4, data,(REG_LEN*total_ic));
+    HAL_SPI_Transmit(&hspi1, cmd, 4, 100);
+    uint8_t dummy_tx[total_ic * REG_LEN];
+    memset(dummy_tx, 0xFF, sizeof(dummy_tx));
+
+    HAL_SPI_TransmitReceive(&hspi1, dummy_tx, data, total_ic * REG_LEN, 100);
 	cs_high(CS_PORT, CS_PIN);
 }
 
@@ -2150,7 +2153,7 @@ int8_t LTC6813_rdcomm(uint8_t total_ic, //Number of ICs in the system
 /* Shifts data in COMM register out over LTC6813 SPI/I2C port */
 void LTC6813_stcomm(uint8_t len) //Length of data to be transmitted
 {
-	uint8_t cmd[76] = {0};
+	uint8_t cmd[4];
 	uint16_t cmd_pec;
 
 	cmd[0] = 0x07;
@@ -2160,12 +2163,12 @@ void LTC6813_stcomm(uint8_t len) //Length of data to be transmitted
 	cmd[3] = (uint8_t)(cmd_pec);
 
 	cs_low(CS_PORT, CS_PIN);
-	spi_write_array(&hspi1, 4+(len*3), cmd);
-	/*for (int i = 0; i<len*3; i++)
+	spi_write_array(&hspi1, 4, cmd);
+	for (int i = 0; i<len; i++)
 	{
 	    uint8_t dummy = 0;
 	    spi_read_byte(&hspi1, &dummy);
-	}*/
+	}
 	cs_high(CS_PORT, CS_PIN);
 }
 
@@ -2279,11 +2282,19 @@ void LTC6813_init_cfg(uint8_t total_ic, cell_asic *ic)
 {
 	for (uint8_t current_ic = 0; current_ic<total_ic;current_ic++)
 	{
-		for (int j =0; j<6; j++)
+		for (int j = 1; j<6; j++)
 		{
 		  ic[current_ic].config.tx_data[j] = 0;
 		}
+
 	}
+
+	bool gpio[5] = {true, false, false, true, true};
+	for (int i=0;i<total_ic;i++) {
+	  	LTC6813_set_cfgr_refon(i, ic, true);
+	  	LTC6813_set_cfgr_gpio(i, ic, gpio);
+	}
+
 }
 
 /* Helper function to set CFGR variable */
