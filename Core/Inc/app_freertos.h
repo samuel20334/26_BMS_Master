@@ -60,6 +60,8 @@ extern osThreadId_t SafetyTaskHandle;
 extern osThreadId_t CANTaskHandle;
 extern osThreadId_t BalancingTaskHandle;
 extern osMutexId_t icLockHandle;
+extern osMutexId_t tempLockHandle;
+extern osMutexId_t canDataLockHandle;
 extern osSemaphoreId_t firstMeasurementHandle;
 
 /* Exported function prototypes -----------------------------------------------*/

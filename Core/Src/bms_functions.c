@@ -29,18 +29,18 @@ uint16_t code_to_mV(uint16_t code)
 }
 
 float_t ntc_to_temp(uint16_t ntc_voltage) {
-    return (-3.1598 * (float_t)ntc_voltage) + 81.327;
+    return ((-3.1598 * ((float_t)ntc_voltage/100)) + 81.327)*100;
 }
 
 uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_voltages, uint16_t *min_voltages) {
 	uint32_t packVoltage = 0;
 
-	for (uint8_t i=0;i<total_ic;i++) {
+	for (uint8_t ic_idx=0;ic_idx<total_ic-1;ic_idx++) {
 		uint16_t max_voltage = 0;
 		uint16_t min_voltage = 65535;
 
 		for (uint8_t cell = 0;cell < CELLS_PER_IC;cell++) {
-			uint16_t voltage_mV = code_to_mV(ic[i].cells.c_codes[cell]);
+			uint16_t voltage_mV = code_to_mV(ic[ic_idx].cells.c_codes[cell]);
 			packVoltage += voltage_mV;
 
 			if (voltage_mV > max_voltage) {
@@ -51,20 +51,21 @@ uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_voltag
 			}
 		}
 
-		max_voltages[i] = max_voltage;
-		min_voltages[i] = min_voltage;
+		max_voltages[ic_idx] = max_voltage;
+		min_voltages[ic_idx] = min_voltage;
 	}
 
 	return packVoltage;
 }
 
-void temp_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_temps, uint16_t *min_temps) {
-	for (uint8_t i=0;i<total_ic;i++) {
+void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t *max_temps, uint16_t *min_temps) {
+
+	for (uint8_t ic_idx=0;ic_idx<total_ic-1;ic_idx++) {
 		uint16_t max_temp = 0;
 		uint16_t min_temp = 65535;
 
-		for (uint8_t cell = 0;cell < TEMPS_PER_IC;cell++) {
-			uint16_t voltage_mV = code_to_mV(ic[i].aux.a_codes[cell]);
+		for (uint8_t ch = 1;ch < TEMPS_PER_IC;ch++) {
+			uint16_t voltage_mV = code_to_mV(temps[ic_idx][ch]);
 
 			if (voltage_mV > max_temp) {
 				max_temp = voltage_mV;
@@ -74,8 +75,8 @@ void temp_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_temps, uint16
 			}
 		}
 
-		max_temps[i] = max_temp;
-		min_temps[i] = min_temp;
+		max_temps[ic_idx] = max_temp;
+		min_temps[ic_idx] = min_temp;
 	}
 }
 
@@ -164,18 +165,33 @@ void print_cell_temps(uint8_t total_ic, cell_asic *ic)
 
 // FAULT FUNCTIONS
 
-bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint16_t *mask) {
+bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint16_t *mask, uint8_t *data) {
     bool fault = false;
+    uint8_t fault_counter = 0;
 
     for (uint8_t ic_idx = 0; ic_idx < 9; ic_idx++) {
         for (uint8_t cell = 0; cell < CELLS_PER_IC; cell++) {
         	if (ic[ic_idx].cells.c_codes[cell] < uv) {
         		*mask |= FAULT_UNDERVOLTAGE;
         		fault = true;
+
+        		if (fault_counter < 3) {
+        			uint8_t fault_data = (ic_idx << 8) | (cell >> 8);
+        			data[fault_counter] = fault_data;
+        		}
+
+        		fault_counter++;
         	}
         	else if (ic[ic_idx].cells.c_codes[cell] > ov) {
             	*mask |= FAULT_OVERVOLTAGE;
         		fault = true;
+
+        		if (fault_counter < 3) {
+        			uint8_t fault_data = (ic_idx << 8) | (cell >> 8);
+        			data[fault_counter] = fault_data;
+        		}
+
+        		fault_counter++;
             }
         }
     }
@@ -183,11 +199,12 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     return fault;
 }
 
-bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint16_t *mask)
+bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint16_t *mask, uint8_t *data)
 {
     bool fault = false;
+    uint8_t fault_counter = 0;
 
-    for(uint8_t ic_idx = 0; ic_idx < 9; ic_idx++)
+    for(uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++)
     {
         for(uint8_t ch = 1; ch < TEMPS_PER_IC; ch++)
         {
@@ -196,11 +213,26 @@ bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC],
             {
                 *mask |= FAULT_UNDERTEMP;
                 fault = true;
+
+        		if (fault_counter < 3) {
+        			uint8_t fault_data = (ic_idx << 8) | (ch >> 8);
+        			data[fault_counter] = fault_data;
+        		}
+
+        		fault_counter++;
+
             }
             else if(temps[ic_idx][ch] < ot)
             {
             	*mask |= FAULT_OVERTEMP;
             	fault = true;
+
+        		if (fault_counter < 3) {
+        			uint8_t fault_data = (ic_idx << 8) | (ch >> 8);
+        			data[fault_counter] = fault_data;
+        		}
+
+        		fault_counter++;
             }
         }
     }
@@ -297,79 +329,86 @@ void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle)
 
 }
 
-static HAL_StatusTypeDef FDCAN_AddToTxFifoQ(FDCAN_HandleTypeDef* hfdcan, const FDCAN_TxHeaderTypeDef *pTxHeader, const uint8_t* txData) {
-    if (HAL_FDCAN_GetTxFifoFreeLevel(hfdcan) > 0) {
-        return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan, pTxHeader, txData);
+static HAL_StatusTypeDef FDCAN_AddToTxFifoQ(
+    FDCAN_HandleTypeDef* hfdcan,
+    const FDCAN_TxHeaderTypeDef *pTxHeader,
+    const uint8_t* txData)
+{
+    uint32_t timeout = 10000;
+
+    while (HAL_FDCAN_GetTxFifoFreeLevel(hfdcan) == 0)
+    {
+        if (--timeout == 0)
+        {
+            return HAL_TIMEOUT;
+        }
     }
-    return HAL_OK;
+
+    return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan, pTxHeader, txData);
 }
 
 
 void FDCAN_SendCellData(
         FDCAN_HandleTypeDef* hfdcan,
-        FDCAN_TxHeaderTypeDef* hTxHeader,
         uint16_t minV,
         uint16_t maxV,
-        uint16_t minT,
-        uint16_t maxT
+        int16_t minT,
+        int16_t maxT
     )
 {
-    // Package message
-    packU16(minV, txData1 + 0);
-    packU16(maxV, txData1 + 2);
-    packU16(minT, txData1 + 4);
-    packU16(maxT, txData1 + 6);
+	FDCAN_TxHeaderTypeDef txHeader = {0};
+	// Package message
+    uint8_t data[8];
+
+	packU16(minV, data + 0);
+    packU16(maxV, data + 2);
+    packS16(minT, data + 4);
+    packS16(maxT, data + 6);
 
     // Set header
-    hTxHeader->Identifier = CAN_CELL_DATA_MSG_ID;
-    hTxHeader->IdType = FDCAN_STANDARD_ID;
-    hTxHeader->DataLength = 8;
-    hTxHeader->FDFormat = FDCAN_CLASSIC_CAN;
+    txHeader.Identifier = CAN_CELL_DATA_MSG_ID;
+    txHeader.IdType = FDCAN_STANDARD_ID;
+    txHeader.DataLength = FDCAN_DLC_BYTES_8;
+    txHeader.FDFormat = FDCAN_CLASSIC_CAN;
 
-    if (FDCAN_AddToTxFifoQ(hfdcan, hTxHeader, txData1) != HAL_OK) {
+    if (FDCAN_AddToTxFifoQ(hfdcan, &txHeader, data) != HAL_OK) {
         Error_Handler();
     }
 }
 
 void FDCAN_SendPackData(
         FDCAN_HandleTypeDef* hfdcan,
-        FDCAN_TxHeaderTypeDef* hTxHeader,
         uint32_t pack_voltage
     )
 {
-    txData1[0] = (uint8_t)(pack_voltage >> 24);
-    txData1[1] = (uint8_t)(pack_voltage >> 16);
-    txData1[2] = (uint8_t)(pack_voltage >> 8);
-    txData1[3] = (uint8_t)(pack_voltage);
+	FDCAN_TxHeaderTypeDef txHeader = {0};
+	uint8_t data[8];
 
-    hTxHeader->Identifier = CAN_PACK_DATA_MSG_ID;
-    hTxHeader->IdType = FDCAN_STANDARD_ID;
-    hTxHeader->DataLength = FDCAN_DLC_BYTES_4;
+	data[0] = (uint8_t)(pack_voltage >> 24);
+    data[1] = (uint8_t)(pack_voltage >> 16);
+    data[2] = (uint8_t)(pack_voltage >> 8);
+    data[3] = (uint8_t)(pack_voltage);
 
-    if (FDCAN_AddToTxFifoQ(hfdcan, hTxHeader, txData1) != HAL_OK) {
+    txHeader.Identifier = CAN_PACK_DATA_MSG_ID;
+    txHeader.IdType = FDCAN_STANDARD_ID;
+    txHeader.DataLength = FDCAN_DLC_BYTES_4;
+
+    if (FDCAN_AddToTxFifoQ(hfdcan, &txHeader, data) != HAL_OK) {
         Error_Handler();
     }
 }
 
-void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, FDCAN_TxHeaderTypeDef* hTxHeader)
+void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_IC], uint16_t min_voltages[TOTAL_IC], uint16_t max_temps[TOTAL_IC], uint16_t min_temps[TOTAL_IC], uint32_t packVoltage)
 {
-    uint16_t max_voltages[CELLS_PER_IC];
-    uint16_t min_voltages[CELLS_PER_IC];
-    uint16_t max_temps[TEMPS_PER_IC];
-    uint16_t min_temps[TEMPS_PER_IC];
-
-    uint32_t packVoltage = voltage_analytics(TOTAL_IC, IC, max_voltages, min_voltages);
-    temp_analytics(TOTAL_IC, IC, max_temps, min_temps);
-
-    for (uint8_t i = 0; i < TOTAL_IC; i++) {
-    	// Send values
-    	float ntcMin = ntc_to_temp(max_temps[i]);
-		float ntcMax = ntc_to_temp(min_temps[i]);
-    	FDCAN_SendCellData(hfdcan, hTxHeader, min_voltages[i], max_voltages[i], ntcMin, ntcMax);
-    }
-
     // Send pack votage
-    FDCAN_SendPackData(hfdcan, hTxHeader, packVoltage);
+    FDCAN_SendPackData(hfdcan, packVoltage);
+
+	for (uint8_t i = 0; i < TOTAL_IC; i++) {
+    	// Send values
+    	float ntcMin = ntc_to_temp((float)max_temps[i]);
+		float ntcMax = ntc_to_temp((float)min_temps[i]);
+    	FDCAN_SendCellData(hfdcan, min_voltages[i], max_voltages[i], ntcMin, ntcMax);
+    }
 }
 
 void FDCAN_SendFault(
@@ -392,7 +431,7 @@ void FDCAN_SendFault(
     // Set header
     hTxHeader->Identifier = CAN_FAULT_MSG_ID;
     hTxHeader->IdType = FDCAN_STANDARD_ID;
-    hTxHeader->DataLength = 2;   // now only 2 bytes
+    hTxHeader->DataLength = FDCAN_DLC_BYTES_2;
     hTxHeader->FDFormat = FDCAN_CLASSIC_CAN;
 
     if (FDCAN_AddToTxFifoQ(hfdcan, hTxHeader, txData1) != HAL_OK) {
@@ -427,8 +466,7 @@ void FDCAN_StartCharging()
 
     HAL_FDCAN_Stop(&hfdcan2);
     HAL_FDCAN_Init(&hfdcan2);
-    HAL_FDCAN_Start(&hfdcan2);
-
+    FDCAN2_Init(&hfdcan2);
     // Send enable message
     FDCAN_SendChargerMessage(ELCON_Voltage, ELCON_Current, 0U);
 

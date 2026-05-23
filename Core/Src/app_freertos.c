@@ -50,16 +50,20 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 extern cell_asic IC[TOTAL_IC];
-uint16_t max_voltages[CELLS_PER_IC];
-uint16_t min_voltages[CELLS_PER_IC];
-uint16_t max_temps[TEMPS_PER_IC];
-uint16_t min_temps[TEMPS_PER_IC];
+
+uint16_t max_voltages[TOTAL_IC];
+uint16_t min_voltages[TOTAL_IC];
+uint16_t max_temps[TOTAL_IC];
+uint16_t min_temps[TOTAL_IC];
+uint32_t packVoltage = 0;
 
 uint16_t temps[TOTAL_IC][TEMPS_PER_IC];
 
 bool firstMeasurementDone = false;
 bool fault_state = false;
 uint16_t fault_mask = 0;
+uint8_t fault_data[3];
+
 FDCAN_TxHeaderTypeDef hTxHeader;
 
 uint8_t balancingDone = 0;
@@ -77,7 +81,7 @@ osThreadId_t MeasurementTaskHandle;
 const osThreadAttr_t MeasurementTask_attributes = {
   .name = "MeasurementTask",
   .priority = (osPriority_t) osPriorityNormal,
-  .stack_size = 1024 * 4
+  .stack_size = 256 * 4
 };
 /* Definitions for SafetyTask */
 osThreadId_t SafetyTaskHandle;
@@ -105,6 +109,16 @@ osMutexId_t icLockHandle;
 const osMutexAttr_t icLock_attributes = {
   .name = "icLock"
 };
+/* Definitions for tempLock */
+osMutexId_t tempLockHandle;
+const osMutexAttr_t tempLock_attributes = {
+  .name = "tempLock"
+};
+/* Definitions for canDataLock */
+osMutexId_t canDataLockHandle;
+const osMutexAttr_t canDataLock_attributes = {
+  .name = "canDataLock"
+};
 /* Definitions for firstMeasurement */
 osSemaphoreId_t firstMeasurementHandle;
 const osSemaphoreAttr_t firstMeasurement_attributes = {
@@ -127,6 +141,12 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END Init */
   /* creation of icLock */
   icLockHandle = osMutexNew(&icLock_attributes);
+
+  /* creation of tempLock */
+  tempLockHandle = osMutexNew(&tempLock_attributes);
+
+  /* creation of canDataLock */
+  canDataLockHandle = osMutexNew(&canDataLock_attributes);
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -220,7 +240,16 @@ void MeasurementTask(void *argument)
 	  // 25 CODE
 	  osMutexAcquire(icLockHandle, osWaitForever);
 	  read_cell_voltages(TOTAL_IC, IC);
+
+	  osMutexAcquire(tempLockHandle, osWaitForever);
 	  read_temps_25(TOTAL_IC, IC, temps);
+
+	  osMutexAcquire(canDataLockHandle, osWaitForever);
+	  temp_analytics(TOTAL_IC, temps, max_temps, min_temps);
+	  osMutexRelease(tempLockHandle);
+
+	  packVoltage = voltage_analytics(TOTAL_IC, IC, max_voltages, min_voltages);
+	  osMutexRelease(canDataLockHandle);
 	  osMutexRelease(icLockHandle);
 
 	  if (!firstMeasurementDone) {
@@ -249,8 +278,12 @@ void SafetyTask(void *argument)
   for(;;)
   {
 	  osMutexAcquire(icLockHandle, osWaitForever);
-	  fault_state = check_uv_ov_fault(TOTAL_IC, IC, UNDERVOLTAGE, OVERVOLTAGE, &fault_mask) || check_ut_ot_fault(TOTAL_IC, temps, UNDERTEMP, OVERTEMP, &fault_mask);
+	  fault_state |= check_uv_ov_fault(TOTAL_IC, IC, UNDERVOLTAGE, OVERVOLTAGE, &fault_mask, fault_data);
 	  osMutexRelease(icLockHandle);
+
+	  osMutexAcquire(tempLockHandle, osWaitForever);
+	  fault_state |= check_ut_ot_fault(TOTAL_IC, temps, UNDERTEMP, OVERTEMP, &fault_mask, fault_data);
+	  osMutexRelease(tempLockHandle);
 
 	  if (fault_state) {
 		  FAULT_LOW();
@@ -275,14 +308,16 @@ void CANTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	/*CAN_Logging(&hfdcan1, &hTxHeader);
+	osMutexAcquire(canDataLockHandle, osWaitForever);
+	CAN_Logging(&hfdcan1, max_voltages, min_voltages, max_temps, min_temps, packVoltage);
+	osMutexRelease(canDataLockHandle);
 
 	if (fault_state) {
 		FDCAN_SendFault(&hfdcan1, &hTxHeader, fault_mask);
 	}
 
-	CAN_Charging(&fault_state);*/
-	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
+	//CAN_Charging(&fault_state);
+	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END CANTask */
 }

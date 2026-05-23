@@ -48,13 +48,13 @@ void print_cell_voltages(uint8_t total_ic, cell_asic *ic);
 
 void print_cell_temps(uint8_t total_ic, cell_asic *ic);
 
-bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint16_t *mask);
+bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint16_t *mask, uint8_t *data);
 
-bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint16_t *mask);
+bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint16_t *mask, uint8_t *data);
 
 uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_voltages, uint16_t *min_voltages);
 
-void temp_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_temps, uint16_t *min_temps);
+void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t *max_temps, uint16_t *min_temps);
 
 void FDCAN1_Init(FDCAN_HandleTypeDef* fdcanHandle);
 
@@ -62,20 +62,18 @@ void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle);
 
 void FDCAN_SendCellData(
         FDCAN_HandleTypeDef* hfdcan,
-        FDCAN_TxHeaderTypeDef* hTxHeader,
         uint16_t minV,
         uint16_t maxV,
-        uint16_t minT,
-        uint16_t maxT
+        int16_t minT,
+        int16_t maxT
     );
 
 void FDCAN_SendPackData(
         FDCAN_HandleTypeDef* hfdcan,
-        FDCAN_TxHeaderTypeDef* hTxHeader,
         uint32_t pack_voltage
     );
 
-void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, FDCAN_TxHeaderTypeDef* hTxHeader);
+void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_IC], uint16_t min_voltages[TOTAL_IC], uint16_t max_temps[TOTAL_IC], uint16_t min_temps[TOTAL_IC], uint32_t packVoltage);
 
 void FDCAN_SendFault(
         FDCAN_HandleTypeDef* hfdcan,
@@ -118,6 +116,11 @@ static inline void FAULT_LOW()
 // Packs a 16-bit integer into two 8-bit ints, writing them to dst and dst+1; big endian
 static inline void packU16(uint16_t val, uint8_t* dst) {
     *(uint16_t*)dst = ((val & 0x00FF) << 8) | ((val & 0xFF00) >> 8);
+}
+
+static inline void packS16(int16_t val, uint8_t* buf) {
+    buf[0] = (uint8_t)((val >> 8) & 0xFF);
+    buf[1] = (uint8_t)(val & 0xFF);
 }
 
 
