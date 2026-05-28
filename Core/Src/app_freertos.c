@@ -35,7 +35,7 @@
 /* USER CODE BEGIN PD */
 #define TOTAL_IC 10
 #define UNDERVOLTAGE 27000
-#define OVERVOLTAGE 42000
+#define OVERVOLTAGE 41000
 #define UNDERTEMP 25700
 #define OVERTEMP 9900
 
@@ -61,10 +61,14 @@ uint16_t temps[TOTAL_IC][TEMPS_PER_IC];
 
 bool firstMeasurementDone = false;
 bool fault_state = false;
-uint16_t fault_mask = 0;
+uint8_t fault_mask = 0;
 uint8_t fault_data[3];
 
 FDCAN_TxHeaderTypeDef hTxHeader;
+
+extern uint32_t IVTS_Current;
+extern uint16_t delta_t;
+uint16_t SoC = 0;
 
 uint8_t balancingDone = 0;
 
@@ -152,7 +156,7 @@ void MX_FREERTOS_Init(void) {
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
   /* creation of firstMeasurement */
-  firstMeasurementHandle = osSemaphoreNew(1, 0, &firstMeasurement_attributes);
+  firstMeasurementHandle = osSemaphoreNew(5, 0, &firstMeasurement_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -200,6 +204,7 @@ void SerialTask(void *argument)
 {
   /* USER CODE BEGIN SerialTask */
   /* Infinite loop */
+  //osSemaphoreAcquire(firstMeasurementHandle, osWaitForever);
   TickType_t lastWakeTime = xTaskGetTickCount();
 
   for(;;)
@@ -252,9 +257,20 @@ void MeasurementTask(void *argument)
 	  osMutexRelease(canDataLockHandle);
 	  osMutexRelease(icLockHandle);
 
+	  /*if (IVTS_Current == 0) {
+		  SoC = soc_ocv(packVoltage);
+	  }
+
+	  else {
+		  SoC = soc_cc(IVTS_Current, SoC, delta_t);
+	  }*/
+
 	  if (!firstMeasurementDone) {
 		  firstMeasurementDone = true;
 		  osSemaphoreRelease(firstMeasurementHandle);
+		  //osSemaphoreRelease(firstMeasurementHandle);
+		  //osSemaphoreRelease(firstMeasurementHandle);
+		  //osSemaphoreRelease(firstMeasurementHandle);
 	  }
 
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
@@ -304,6 +320,7 @@ void SafetyTask(void *argument)
 void CANTask(void *argument)
 {
   /* USER CODE BEGIN CANTask */
+  //osSemaphoreAcquire(firstMeasurementHandle, osWaitForever);
   TickType_t lastWakeTime = xTaskGetTickCount();
   /* Infinite loop */
   for(;;)
@@ -313,7 +330,7 @@ void CANTask(void *argument)
 	osMutexRelease(canDataLockHandle);
 
 	if (fault_state) {
-		FDCAN_SendFault(&hfdcan1, &hTxHeader, fault_mask);
+		FDCAN_SendFault(&hfdcan1, &hTxHeader, fault_mask, fault_data);
 	}
 
 	//CAN_Charging(&fault_state);
@@ -332,12 +349,13 @@ void CANTask(void *argument)
 void BalancingTask(void *argument)
 {
   /* USER CODE BEGIN BalancingTask */
+  //osSemaphoreAcquire(firstMeasurementHandle, osWaitForever);
   TickType_t lastWakeTime = xTaskGetTickCount();
   /* Infinite loop */
   for(;;)
   {
 	  osMutexAcquire(icLockHandle, osWaitForever);
-	  if (!balancingDone) {
+	  if (!balancingDone && !fault_state) {
 		  //balancingDone = balance_cells(TOTAL_IC, IC, TARGET_VOLTAGE);
 	  }
 	  osMutexRelease(icLockHandle);

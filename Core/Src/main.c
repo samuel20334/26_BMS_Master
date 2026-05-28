@@ -78,6 +78,10 @@ uint16_t ELCON_MaxCurrent = 70;
 uint8_t ELCON_Status;
 atomic_flag ELCON_FeedbackReceived;
 
+uint32_t IVTS_Current;
+uint32_t lastWakeTime = 0;
+uint16_t delta_t = 0;
+
 extern bool CAN2_StartCharging;
 /* USER CODE END PV */
 
@@ -623,9 +627,9 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 0;
+  htim6.Init.Prescaler = 24999;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 65535;
+  htim6.Init.Period = 9999;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -758,8 +762,8 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
             Error_Handler();
         }
 
-        // Update feedback variables
-        if (rxHeader2.Identifier == ELCON_BROADCAST_ID) {
+        // Update feedback variables  // from Jacob's code I don't think this is used for anything - Sam
+        /*if (rxHeader2.Identifier == ELCON_BROADCAST_ID) {
             if (atomic_flag_test_and_set_explicit(&ELCON_FeedbackReceived, memory_order_acquire)) {
                 // Update voltage
                 ELCON_Voltage = (uint16_t)((rxData2[0] << 8) | rxData2[1]);
@@ -768,7 +772,19 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 
                 atomic_flag_clear_explicit(&ELCON_FeedbackReceived, memory_order_release);
             }
-        }
+        }*/
+
+        /*if (rxHeader2.Identifier == CAN_IVTS_CURRENT_ID) {
+        	IVTS_Current =
+        	    ((uint32_t)rxData2[2] << 24) |
+        	    ((uint32_t)rxData2[3] << 16) |
+        	    ((uint32_t)rxData2[4] << 8)  |
+        	    ((uint32_t)rxData2[5]);			// 32 bit value for current
+
+        	delta_t = HAL_GetTick() - lastWakeTime;
+        	lastWakeTime = HAL_GetTick();
+
+        }*/
     }
 }
 

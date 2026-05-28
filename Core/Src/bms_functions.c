@@ -17,7 +17,7 @@ extern uint16_t ELCON_Current;
 extern TIM_HandleTypeDef htim6;
 
 CAN2_Mode_e     CAN2_Mode;
-bool            CAN2_StartCharging;
+bool            CAN2_StartCharging = true;
 
 // GENERAL FUNCTIONS
 
@@ -26,6 +26,36 @@ uint16_t code_to_mV(uint16_t code)
     // LTC6813 datasheet: Vcell = code * 0.0001 V
     // Multiply by 1000 to get mV
     return (uint16_t)((code * 1000UL) / 10000UL);
+}
+
+int binary_search(const uint16_t *array, uint16_t size, uint16_t target) {
+	int i = 0;
+	int j = size - 1;
+	int m;
+
+	while (i <= j) {
+		m = (i + j) / 2;
+
+		if (array[m] == target) {
+			return m;
+		}
+		else if (array[m] > target) {
+			i = m + 1;
+		}
+
+		else {
+			j = m - 1;
+		}
+	}
+
+	// If not found, return the closes index
+	if (target - array[j] <= array[i] - target) {
+		return j;
+	}
+
+	else {
+		return i;
+	}
 }
 
 float_t ntc_to_temp(uint16_t ntc_voltage) {
@@ -111,6 +141,18 @@ void read_cell_temps(uint8_t total_ic, cell_asic *ic) {
 
 }
 
+uint16_t soc_ocv(uint16_t packVoltage) {
+	uint16_t avg_cell_voltage = packVoltage/(CELLS_PER_IC * TOTAL_IC);
+	int idx = binary_search(ocv_lookup, sizeof(ocv_lookup), avg_cell_voltage);
+	uint16_t soc = (200-idx)*1000 / 200;
+
+	return soc;
+}
+
+uint16_t soc_cc(uint16_t I_curr, uint16_t soc_prev, uint16_t delta_t) {
+	return (soc_prev + (I_curr*delta_t)/P45B_CAPACITY);
+}
+
 // SERIAL FUNCTIONS
 
 void print_cell_voltages(uint8_t total_ic, cell_asic *ic)
@@ -165,7 +207,7 @@ void print_cell_temps(uint8_t total_ic, cell_asic *ic)
 
 // FAULT FUNCTIONS
 
-bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint16_t *mask, uint8_t *data) {
+bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint8_t *mask, uint8_t *data) {
     bool fault = false;
     uint8_t fault_counter = 0;
 
@@ -176,7 +218,7 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
         		fault = true;
 
         		if (fault_counter < 3) {
-        			uint8_t fault_data = (ic_idx << 8) | (cell >> 8);
+        			uint8_t fault_data = ((ic_idx & 0x0F) << 4) | (cell & 0x0F);
         			data[fault_counter] = fault_data;
         		}
 
@@ -187,7 +229,7 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
         		fault = true;
 
         		if (fault_counter < 3) {
-        			uint8_t fault_data = (ic_idx << 8) | (cell >> 8);
+        			uint8_t fault_data = ((ic_idx & 0x0F) << 4) | (cell & 0x0F);
         			data[fault_counter] = fault_data;
         		}
 
@@ -199,12 +241,12 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     return fault;
 }
 
-bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint16_t *mask, uint8_t *data)
+bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
 {
     bool fault = false;
     uint8_t fault_counter = 0;
 
-    for(uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++)
+    for(uint8_t ic_idx = 0; ic_idx < total_ic-1; ic_idx++)
     {
         for(uint8_t ch = 1; ch < TEMPS_PER_IC; ch++)
         {
@@ -215,7 +257,7 @@ bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC],
                 fault = true;
 
         		if (fault_counter < 3) {
-        			uint8_t fault_data = (ic_idx << 8) | (ch >> 8);
+        			uint8_t fault_data = ((ic_idx & 0x0F) << 4) | (ch & 0x0F);
         			data[fault_counter] = fault_data;
         		}
 
@@ -228,7 +270,7 @@ bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC],
             	fault = true;
 
         		if (fault_counter < 3) {
-        			uint8_t fault_data = (ic_idx << 8) | (ch >> 8);
+        			uint8_t fault_data = ((ic_idx & 0x0F) << 4) | (ch & 0x0F);
         			data[fault_counter] = fault_data;
         		}
 
@@ -407,14 +449,15 @@ void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_IC], u
     	// Send values
     	float ntcMin = ntc_to_temp((float)max_temps[i]);
 		float ntcMax = ntc_to_temp((float)min_temps[i]);
-    	FDCAN_SendCellData(hfdcan, min_voltages[i], max_voltages[i], ntcMin, ntcMax);
+    	//FDCAN_SendCellData(hfdcan, min_voltages[i], max_voltages[i], ntcMin, ntcMax);
     }
 }
 
 void FDCAN_SendFault(
         FDCAN_HandleTypeDef* hfdcan,
         FDCAN_TxHeaderTypeDef* hTxHeader,
-        uint16_t bitmask
+        uint8_t bitmask,
+		uint8_t *fault_data
     )
 {
     /* Fault codes
@@ -423,18 +466,20 @@ void FDCAN_SendFault(
      * Undertemp	-	4
      * Overtemp		-	8
      */
-
+	uint8_t data[4];
 	// Package message
-    txData1[0] = (uint8_t)((bitmask & 0xFF00) >> 8);
-    txData1[1] = (uint8_t)(bitmask & 0x00FF);
+    data[0] = bitmask;
+    data[1] = fault_data[0];
+    data[2] = fault_data[1];
+    data[3] = fault_data[2];
 
     // Set header
     hTxHeader->Identifier = CAN_FAULT_MSG_ID;
     hTxHeader->IdType = FDCAN_STANDARD_ID;
-    hTxHeader->DataLength = FDCAN_DLC_BYTES_2;
+    hTxHeader->DataLength = FDCAN_DLC_BYTES_4;
     hTxHeader->FDFormat = FDCAN_CLASSIC_CAN;
 
-    if (FDCAN_AddToTxFifoQ(hfdcan, hTxHeader, txData1) != HAL_OK) {
+    if (FDCAN_AddToTxFifoQ(hfdcan, hTxHeader, data) != HAL_OK) {
             Error_Handler();
     }
 }
@@ -495,7 +540,7 @@ void FDCAN_StopCharging()
 }
 
 void CAN_Charging(bool *fault_state) {
-	CAN2_StartCharging = true;
+	//CAN2_StartCharging = true;
 	if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2) > 0) {
 		if (CAN2_Mode == CAN_MODE_NORMAL) {
 	    // If start charging
@@ -503,12 +548,14 @@ void CAN_Charging(bool *fault_state) {
 				CAN2_StartCharging = false;
 	            FDCAN_StartCharging();
 	        }
+
+			FDCAN_StartCharging();
 	    }
 	    else if (CAN2_Mode == CAN_MODE_CHARGING) {
 	    // Stop charging if faulted
-	    	if (*fault_state) {
+	    	/*if (*fault_state) {
 	    		FDCAN_StopCharging();
-	        }
+	        }*/
 	    }
 	 }
 

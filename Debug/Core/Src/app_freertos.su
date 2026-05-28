@@ -1,7 +1,7 @@
-../Core/Inc/bms_functions.h:109:20:FAULT_LOW	8	static
-../Core/Src/app_freertos.c:138:6:MX_FREERTOS_Init	8	static
-../Core/Src/app_freertos.c:199:6:SerialTask	24	static
-../Core/Src/app_freertos.c:229:6:MeasurementTask	24	static
-../Core/Src/app_freertos.c:272:6:SafetyTask	32	static
-../Core/Src/app_freertos.c:304:6:CANTask	32	static
-../Core/Src/app_freertos.c:332:6:BalancingTask	24	static
+../Core/Inc/bms_functions.h:121:20:FAULT_LOW	8	static
+../Core/Src/app_freertos.c:142:6:MX_FREERTOS_Init	8	static
+../Core/Src/app_freertos.c:203:6:SerialTask	24	static
+../Core/Src/app_freertos.c:234:6:MeasurementTask	24	static
+../Core/Src/app_freertos.c:288:6:SafetyTask	32	static
+../Core/Src/app_freertos.c:320:6:CANTask	32	static
+../Core/Src/app_freertos.c:349:6:BalancingTask	24	static
