@@ -71,10 +71,8 @@ cell_asic IC[TOTAL_IC];
 extern uint8_t rxData2[8];
 static uint8_t uartRxData[8] = {0};
 
-uint16_t ELCON_Voltage;
-uint16_t ELCON_Current;
-uint16_t ELCON_MaxVoltage = 5800;
-uint16_t ELCON_MaxCurrent = 70;
+extern uint16_t ELCON_MaxVoltage;
+extern uint16_t ELCON_MaxCurrent;
 uint8_t ELCON_Status;
 atomic_flag ELCON_FeedbackReceived;
 
@@ -82,7 +80,12 @@ uint32_t IVTS_Current;
 uint32_t lastWakeTime = 0;
 uint16_t delta_t = 0;
 
-extern bool CAN2_StartCharging;
+extern bool startCharging;
+extern bool stopCharging;
+
+extern uint16_t target_voltage;
+extern bool startBalancing;
+extern bool stopBalancing;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -158,6 +161,10 @@ int main(void)
   FDCAN2_Init(&hfdcan2);
   HAL_TIM_Base_Start(&htim2);
   FAULT_HIGH();
+  if (HAL_UART_Receive_IT(&huart1, uartRxData, 6) != HAL_OK)
+  {
+      Error_Handler();
+  }
 
   wakeup_sleep(TOTAL_IC);
   wakeup_idle(TOTAL_IC);
@@ -296,10 +303,10 @@ static void MX_FDCAN1_Init(void)
   hfdcan1.Init.AutoRetransmission = ENABLE;
   hfdcan1.Init.TransmitPause = DISABLE;
   hfdcan1.Init.ProtocolException = DISABLE;
-  hfdcan1.Init.NominalPrescaler = 25;
+  hfdcan1.Init.NominalPrescaler = 10;
   hfdcan1.Init.NominalSyncJumpWidth = 1;
-  hfdcan1.Init.NominalTimeSeg1 = 15;
-  hfdcan1.Init.NominalTimeSeg2 = 4;
+  hfdcan1.Init.NominalTimeSeg1 = 19;
+  hfdcan1.Init.NominalTimeSeg2 = 5;
   hfdcan1.Init.DataPrescaler = 1;
   hfdcan1.Init.DataSyncJumpWidth = 1;
   hfdcan1.Init.DataTimeSeg1 = 1;
@@ -338,10 +345,10 @@ static void MX_FDCAN2_Init(void)
   hfdcan2.Init.AutoRetransmission = ENABLE;
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
-  hfdcan2.Init.NominalPrescaler = 25;
+  hfdcan2.Init.NominalPrescaler = 10;
   hfdcan2.Init.NominalSyncJumpWidth = 1;
-  hfdcan2.Init.NominalTimeSeg1 = 15;
-  hfdcan2.Init.NominalTimeSeg2 = 4;
+  hfdcan2.Init.NominalTimeSeg1 = 19;
+  hfdcan2.Init.NominalTimeSeg2 = 5;
   hfdcan2.Init.DataPrescaler = 1;
   hfdcan2.Init.DataSyncJumpWidth = 1;
   hfdcan2.Init.DataTimeSeg1 = 1;
@@ -583,7 +590,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
+  htim2.Init.Prescaler = 249;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -790,20 +797,46 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
 {
-    // [ 0x00, 0x04, V1, V0, I1, I0 ]
-    if (uartRxData[0] == 0x00 && uartRxData[1] == 0x04) {
-        // Start chargign
-        ELCON_Voltage = (uint16_t)((uartRxData[2] << 8) | uartRxData[3]);
-        ELCON_Current = (uint16_t)((uartRxData[4] << 8) | uartRxData[5]);
-        CAN2_StartCharging = true;
-    }
-    else if (uartRxData[0] == 0x00 && uartRxData[1] == 0x02) {
-        // Stop charring
-        FDCAN_StopCharging();
-    }
+    // Start Charging - [ 0x00, V1, V0, I1, I0 ]
+	// Stop Charging - [ 0x01 ]
+	// Start Balancing - [ 0x02, V1, V0 ]
+	// Stop Balancing - [ 0x03 ]
+
+	switch (uartRxData[0]) {
+	case 0x00:
+		// Start charging
+		ELCON_MaxVoltage = (uint16_t)((uartRxData[1] << 8) | uartRxData[2]);
+		ELCON_MaxCurrent = (uint16_t)((uartRxData[3] << 8) | uartRxData[4]);
+		startCharging = true;
+		stopCharging = false;
+		break;
+
+	case 0x01:
+		// Stop charging
+		stopCharging = true;
+		startCharging = false;
+		break;
+
+	case 0x02:
+		// Start balancing
+		startBalancing = true;
+		stopBalancing = false;
+		target_voltage = (uint16_t)((uartRxData[1] << 8) | uartRxData[2]);
+		break;
+
+	case 0x03:
+		// Stop balancing
+		stopBalancing = true;
+		startBalancing = false;
+		break;
+	}
+
 
     // Receive next
-    HAL_UART_Receive_IT(&huart1, uartRxData, 6);
+	if (HAL_UART_Receive_IT(&huart1, uartRxData, 6) != HAL_OK)
+	{
+	    Error_Handler();
+	}
 }
 
 /* USER CODE END 4 */
@@ -862,7 +895,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   /* USER CODE BEGIN Callback 1 */
   if (htim->Instance == TIM6) {
         // Send charger message
-    FDCAN_SendChargerMessage(ELCON_MaxVoltage, ELCON_MaxCurrent, 0);
   }
 
   /* USER CODE END Callback 1 */

@@ -12,8 +12,12 @@
 #include "elcon.h"
 
 #define CAN_FAULT_MSG_ID 0xF0
-#define CAN_CELL_DATA_MSG_ID 0xF1
-#define CAN_PACK_DATA_MSG_ID 0xF2
+#define CAN_PACK_DATA_MSG_ID 0xF1
+#define CAN_SEGMENT1_DATA_MSG_ID 0xF2
+#define CAN_SEGMENT2_DATA_MSG_ID 0xF3
+#define CAN_SEGMENT3_DATA_MSG_ID 0xF4
+#define CAN_SEGMENT4_DATA_MSG_ID 0xF5
+#define CAN_SEGMENT5_DATA_MSG_ID 0xF6
 #define FAULT_UNDERVOLTAGE  (1 << 0)
 #define FAULT_OVERVOLTAGE   (1 << 1)
 #define FAULT_UNDERTEMP     (1 << 2)
@@ -73,6 +77,7 @@ void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle);
 
 void FDCAN_SendCellData(
         FDCAN_HandleTypeDef* hfdcan,
+		uint32_t can_id,
         uint16_t minV,
         uint16_t maxV,
         int16_t minT,

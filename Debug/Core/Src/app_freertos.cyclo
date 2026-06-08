@@ -1,7 +1,8 @@
-../Core/Inc/bms_functions.h:121:20:FAULT_LOW	1
-../Core/Src/app_freertos.c:142:6:MX_FREERTOS_Init	1
-../Core/Src/app_freertos.c:203:6:SerialTask	1
-../Core/Src/app_freertos.c:234:6:MeasurementTask	2
-../Core/Src/app_freertos.c:288:6:SafetyTask	2
-../Core/Src/app_freertos.c:320:6:CANTask	2
-../Core/Src/app_freertos.c:349:6:BalancingTask	1
+../Core/Inc/bms_functions.h:126:20:FAULT_LOW	1
+../Core/Src/app_freertos.c:155:6:MX_FREERTOS_Init	1
+../Core/Src/app_freertos.c:218:6:SerialTask	1
+../Core/Src/app_freertos.c:247:6:MeasurementTask	2
+../Core/Src/app_freertos.c:301:6:SafetyTask	2
+../Core/Src/app_freertos.c:333:6:CANTask	4
+../Core/Src/app_freertos.c:371:6:BalancingTask	4
+../Core/Src/app_freertos.c:390:6:ChargingTimerCallback	1

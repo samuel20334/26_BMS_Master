@@ -472,6 +472,9 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     /* USER CODE END TIM6_MspInit 0 */
     /* Peripheral clock enable */
     __HAL_RCC_TIM6_CLK_ENABLE();
+    /* TIM6 interrupt Init */
+    HAL_NVIC_SetPriority(TIM6_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(TIM6_IRQn);
     /* USER CODE BEGIN TIM6_MspInit 1 */
 
     /* USER CODE END TIM6_MspInit 1 */
@@ -505,6 +508,9 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
     /* USER CODE END TIM6_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_TIM6_CLK_DISABLE();
+
+    /* TIM6 interrupt DeInit */
+    HAL_NVIC_DisableIRQ(TIM6_IRQn);
     /* USER CODE BEGIN TIM6_MspDeInit 1 */
 
     /* USER CODE END TIM6_MspDeInit 1 */
@@ -580,6 +586,9 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
       Error_Handler();
     }
 
+    /* USART1 interrupt Init */
+    HAL_NVIC_SetPriority(USART1_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(USART1_IRQn);
     /* USER CODE BEGIN USART1_MspInit 1 */
 
     /* USER CODE END USART1_MspInit 1 */
@@ -612,6 +621,9 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 
     /* USART1 DMA DeInit */
     HAL_DMA_DeInit(huart->hdmatx);
+
+    /* USART1 interrupt DeInit */
+    HAL_NVIC_DisableIRQ(USART1_IRQn);
     /* USER CODE BEGIN USART1_MspDeInit 1 */
 
     /* USER CODE END USART1_MspDeInit 1 */

@@ -39,7 +39,6 @@
 #define UNDERTEMP 25700
 #define OVERTEMP 9900
 
-#define TARGET_VOLTAGE 28000		// Voltage to balance to
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,8 +52,8 @@ extern cell_asic IC[TOTAL_IC];
 
 uint16_t max_voltages[TOTAL_IC];
 uint16_t min_voltages[TOTAL_IC];
-uint16_t max_temps[TOTAL_IC];
-uint16_t min_temps[TOTAL_IC];
+uint16_t max_temps[TOTAL_IC/2];
+uint16_t min_temps[TOTAL_IC/2];
 uint32_t packVoltage = 0;
 
 uint16_t temps[TOTAL_IC][TEMPS_PER_IC];
@@ -63,6 +62,15 @@ bool firstMeasurementDone = false;
 bool fault_state = false;
 uint8_t fault_mask = 0;
 uint8_t fault_data[3];
+
+volatile uint16_t ELCON_MaxVoltage = 0;
+volatile uint16_t ELCON_MaxCurrent = 0;
+volatile bool startCharging = false;
+volatile bool stopCharging = false;
+
+volatile uint16_t target_voltage = 30000;
+volatile bool startBalancing = false;
+volatile bool stopBalancing = false;
 
 FDCAN_TxHeaderTypeDef hTxHeader;
 
@@ -123,6 +131,11 @@ osMutexId_t canDataLockHandle;
 const osMutexAttr_t canDataLock_attributes = {
   .name = "canDataLock"
 };
+/* Definitions for ChargingTimer */
+osTimerId_t ChargingTimerHandle;
+const osTimerAttr_t ChargingTimer_attributes = {
+  .name = "ChargingTimer"
+};
 /* Definitions for firstMeasurement */
 osSemaphoreId_t firstMeasurementHandle;
 const osSemaphoreAttr_t firstMeasurement_attributes = {
@@ -161,6 +174,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
+  /* creation of ChargingTimer */
+  ChargingTimerHandle = osTimerNew(ChargingTimerCallback, osTimerPeriodic, NULL, &ChargingTimer_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
@@ -209,15 +224,13 @@ void SerialTask(void *argument)
 
   for(;;)
   {
-	  /*osMutexAcquire(icLockHandle, osWaitForever);
+	  osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_voltages(TOTAL_IC, IC);
-	  osMutexRelease(icLockHandle);*/
+	  print_temps_25(temps);	// 25 CODE
+	  print_faults(fault_mask);
+	  osMutexRelease(icLockHandle);
 
-	  /*osMutexAcquire(icLockHandle, osWaitForever);
-	  print_cell_temps(TOTAL_IC, IC);	// 26 CODE
-	  osMutexRelease(icLockHandle);*/
-
-	  //print_temps_25(temps);			// 25 CODE
+	  //print_cell_temps(TOTAL_IC, IC);			// 26 CODE
 
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
@@ -333,7 +346,16 @@ void CANTask(void *argument)
 		FDCAN_SendFault(&hfdcan1, &hTxHeader, fault_mask, fault_data);
 	}
 
-	//CAN_Charging(&fault_state);
+	// Charging Code
+	if (startCharging) {
+		CAN_Charging(&fault_state);
+		osTimerStart(ChargingTimerHandle, pdMS_TO_TICKS(1000));
+	}
+	if (stopCharging) {
+		FDCAN_StopCharging();
+		osTimerStop(ChargingTimerHandle);
+	}
+
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END CANTask */
@@ -355,13 +377,21 @@ void BalancingTask(void *argument)
   for(;;)
   {
 	  osMutexAcquire(icLockHandle, osWaitForever);
-	  if (!balancingDone && !fault_state) {
-		  //balancingDone = balance_cells(TOTAL_IC, IC, TARGET_VOLTAGE);
+	  if (startBalancing && !balancingDone && !fault_state) {
+		  balancingDone = balance_cells(TOTAL_IC, IC, target_voltage);
 	  }
 	  osMutexRelease(icLockHandle);
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
   }
   /* USER CODE END BalancingTask */
+}
+
+/* ChargingTimerCallback function */
+void ChargingTimerCallback(void *argument)
+{
+  /* USER CODE BEGIN ChargingTimerCallback */
+  FDCAN_SendChargerMessage(ELCON_MaxVoltage, ELCON_MaxCurrent, 0);
+  /* USER CODE END ChargingTimerCallback */
 }
 
 /* Private application code --------------------------------------------------*/
