@@ -70,8 +70,8 @@ uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_voltag
 		uint16_t min_voltage = 65535;
 
 		for (uint8_t cell = 0;cell < CELLS_PER_IC;cell++) {
-			uint16_t voltage1_mV = code_to_mV(ic[seg_idx].cells.c_codes[cell]);
-			uint16_t voltage2_mV = code_to_mV(ic[seg_idx+1].cells.c_codes[cell]);
+			uint16_t voltage1_mV = code_to_mV(ic[2*seg_idx].cells.c_codes[cell]);
+			uint16_t voltage2_mV = code_to_mV(ic[2*seg_idx+1].cells.c_codes[cell]);
 
 			packVoltage += voltage1_mV;
 			packVoltage += voltage2_mV;
@@ -105,8 +105,8 @@ void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], ui
 		uint16_t min_temp = 65535;
 
 		for (uint8_t ch = 1;ch < TEMPS_PER_IC;ch++) {
-			uint16_t voltage1_mV = code_to_mV(temps[seg_idx][ch]);
-			uint16_t voltage2_mV = code_to_mV(temps[seg_idx+1][ch]);
+			uint16_t voltage1_mV = code_to_mV(temps[2*seg_idx][ch]);
+			uint16_t voltage2_mV = code_to_mV(temps[2*seg_idx+1][ch]);
 
 			if (voltage1_mV > max_temp) {
 				max_temp = voltage1_mV;
