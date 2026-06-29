@@ -79,6 +79,7 @@
 #define TEMPS_PER_IC 13
 
 #define TOTAL_IC 10
+#define TOTAL_SEGMENTS 5
 
 /*! Cell Voltage data structure. */
 typedef struct

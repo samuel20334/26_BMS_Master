@@ -18,6 +18,7 @@ extern TIM_HandleTypeDef htim6;
 
 extern bool startCharging;
 CAN2_Mode_e     CAN2_Mode;
+volatile CAN_RingBuffer_t canTxBuf;
 
 // GENERAL FUNCTIONS
 
@@ -62,10 +63,10 @@ float_t ntc_to_temp(uint16_t ntc_voltage) {
     return ((-3.1598 * ((float_t)ntc_voltage/100)) + 81.327)*100;
 }
 
-uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_voltages, uint16_t *min_voltages) {
+uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS]) {
 	uint32_t packVoltage = 0;
 
-	for (uint8_t seg_idx=0;seg_idx<total_ic/2;seg_idx++) {
+	for (uint8_t seg_idx=0;seg_idx<TOTAL_SEGMENTS;seg_idx++) {
 		uint16_t max_voltage = 0;
 		uint16_t min_voltage = 65535;
 
@@ -98,27 +99,27 @@ uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_voltag
 	return packVoltage;
 }
 
-void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t *max_temps, uint16_t *min_temps) {
+void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t max_temps[TOTAL_SEGMENTS], uint16_t min_temps[TOTAL_SEGMENTS]) {
 
 	for (uint8_t seg_idx=0;seg_idx<total_ic-1;seg_idx++) {
-		uint16_t max_temp = 0;
-		uint16_t min_temp = 65535;
+		uint16_t max_temp = 65535;
+		uint16_t min_temp = 0;
 
 		for (uint8_t ch = 1;ch < TEMPS_PER_IC;ch++) {
 			uint16_t voltage1_mV = code_to_mV(temps[2*seg_idx][ch]);
 			uint16_t voltage2_mV = code_to_mV(temps[2*seg_idx+1][ch]);
 
-			if (voltage1_mV > max_temp) {
+			if (voltage1_mV < max_temp) {
 				max_temp = voltage1_mV;
 			}
-			if (voltage2_mV > max_temp) {
+			if (voltage2_mV < max_temp) {
 				max_temp = voltage1_mV;
 			}
 
-			if (voltage1_mV < min_temp) {
+			if (voltage1_mV > min_temp) {
 				min_temp = voltage1_mV;
 			}
-			if (voltage2_mV < min_temp) {
+			if (voltage2_mV > min_temp) {
 				min_temp = voltage2_mV;
 			}
 		}
@@ -336,30 +337,34 @@ void FDCAN1_Init(FDCAN_HandleTypeDef* fdcanHandle)
     filterConfig.FilterID1 = 0x520;
     filterConfig.FilterID2 = 0x5F0;
 
-    if (HAL_FDCAN_ConfigFilter(fdcanHandle, &filterConfig) != HAL_OK)
+    /*if (HAL_FDCAN_ConfigFilter(fdcanHandle, &filterConfig) != HAL_OK)
     {
         Error_Handler();
-    }
+    }*/
 
     txHeader1.Identifier = 0;
     txHeader1.IdType = FDCAN_STANDARD_ID;
     txHeader1.TxFrameType = FDCAN_DATA_FRAME;
     txHeader1.DataLength = FDCAN_DLC_BYTES_8;
-    txHeader1.ErrorStateIndicator = FDCAN_ESI_PASSIVE;
+    txHeader1.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
     txHeader1.BitRateSwitch = FDCAN_BRS_OFF;
     txHeader1.FDFormat = FDCAN_CLASSIC_CAN;
     txHeader1.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
     txHeader1.MessageMarker = 0;
 
+    if (HAL_FDCAN_ConfigGlobalFilter(fdcanHandle, FDCAN_REJECT, FDCAN_REJECT, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE) != HAL_OK)
+    {
+        Error_Handler();
+    }
     // Start CAN1
     if (HAL_FDCAN_Start(fdcanHandle) != HAL_OK) {
         Error_Handler();
     }
 
     // Activate notifications for new data
-    if (HAL_FDCAN_ActivateNotification(fdcanHandle, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK) {
+    /*if (HAL_FDCAN_ActivateNotification(fdcanHandle, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK) {
         Error_Handler();
-    }
+    }*/
 }
 
 
@@ -375,26 +380,26 @@ void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle)
     filterConfig.FilterID1 = 0x1806E5F4; // BMS -> Charger
     filterConfig.FilterID2 = 0x18FF50E5; // Charger -> Broadcast
 
-    if (HAL_FDCAN_ConfigFilter(fdcanHandle, &filterConfig) != HAL_OK)
+    /*if (HAL_FDCAN_ConfigFilter(fdcanHandle, &filterConfig) != HAL_OK)
     {
         Error_Handler();
-    }
+    }*/
 
     txHeader2.Identifier = 0;
     txHeader2.IdType = FDCAN_STANDARD_ID;
     txHeader2.TxFrameType = FDCAN_DATA_FRAME;
     txHeader2.DataLength = FDCAN_DLC_BYTES_8;
-    txHeader2.ErrorStateIndicator = FDCAN_ESI_PASSIVE;
+    txHeader2.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
     txHeader2.BitRateSwitch = FDCAN_BRS_OFF;
     txHeader2.FDFormat = FDCAN_CLASSIC_CAN;
     txHeader2.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
     txHeader2.MessageMarker = 0;
 
     /* Configure all filters */
-    // if (HAL_FDCAN_ConfigGlobalFilter(fdcanHandle, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_FILTER_REMOTE) != HAL_OK)
-    // {
-    //     Error_Handler();
-    // }
+    if (HAL_FDCAN_ConfigGlobalFilter(fdcanHandle, FDCAN_REJECT, FDCAN_REJECT, FDCAN_REJECT_REMOTE, FDCAN_REJECT_REMOTE) != HAL_OK)
+    {
+        Error_Handler();
+    }
 
     // Start in normal mode
     CAN2_Mode = CAN_MODE_NORMAL;
@@ -406,9 +411,9 @@ void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle)
     }
 
     // Activate notifications for new data
-    if (HAL_FDCAN_ActivateNotification(fdcanHandle, FDCAN_IT_RX_FIFO1_NEW_MESSAGE, 0) != HAL_OK) {
+    /*if (HAL_FDCAN_ActivateNotification(fdcanHandle, FDCAN_IT_RX_FIFO1_NEW_MESSAGE, 0) != HAL_OK) {
         Error_Handler();
-    }
+    }*/
 
 }
 
@@ -420,15 +425,56 @@ static HAL_StatusTypeDef FDCAN_AddToTxFifoQ(
     uint32_t start = HAL_GetTick();
     const uint32_t timeout_ms = 10;
 
-    while (HAL_FDCAN_IsTxBufferMessagePending(hfdcan, FDCAN_TX_BUFFER0))
+    while (HAL_FDCAN_GetTxFifoFreeLevel(hfdcan) == 0)
     {
         if ((HAL_GetTick() - start) > timeout_ms)
         {
-            return HAL_OK;
+            return HAL_BUSY;
         }
     }
 
     return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan, pTxHeader, txData);
+}
+
+bool CAN_TX_Enqueue(CAN_RingBuffer_t *q, CAN_TxMsg_t *msg)
+{
+    uint16_t next = (q->head + 1) % CAN_TX_BUFFER_SIZE;
+
+    if (next == q->tail)
+    {
+        // buffer full → drop message safely
+        return false;
+    }
+
+    q->buffer[q->head] = *msg;
+    q->head = next;
+
+    return true;
+}
+
+void CAN_TX_Process(CAN_RingBuffer_t *q)
+{
+    	if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1) == 0)
+        {
+    		return;
+        }
+
+        CAN_TxMsg_t *msg = &q->buffer[q->tail];
+
+        if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1,
+                                          &msg->header,
+                                          msg->data) == HAL_OK)
+        {
+            q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
+        }
+        else if (HAL_FDCAN_GetError(&hfdcan1) & HAL_FDCAN_ERROR_FIFO_FULL)
+        {
+            return;
+        }
+        else
+        {
+            q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
+        }
 }
 
 void FDCAN_SendCellData(
@@ -440,24 +486,19 @@ void FDCAN_SendCellData(
         int16_t maxT
     )
 {
-	FDCAN_TxHeaderTypeDef txHeader = {0};
+    CAN_TxMsg_t msg = {0};
 	// Package message
-    uint8_t data[8];
 
-	packU16(minV, data + 0);
-    packU16(maxV, data + 2);
-    packS16(minT, data + 4);
-    packS16(maxT, data + 6);
+    msg.header.Identifier = can_id;
+    msg.header.IdType = FDCAN_STANDARD_ID;
+    msg.header.DataLength = FDCAN_DLC_BYTES_8;
 
-    // Set header
-    txHeader.Identifier = can_id;
-    txHeader.IdType = FDCAN_STANDARD_ID;
-    txHeader.DataLength = FDCAN_DLC_BYTES_8;
-    txHeader.FDFormat = FDCAN_CLASSIC_CAN;
+	packU16(minV, msg.data + 0);
+    packU16(maxV, msg.data + 2);
+    packS16(minT, msg.data + 4);
+    packS16(maxT, msg.data + 6);
 
-    if (FDCAN_AddToTxFifoQ(hfdcan, &txHeader, data) != HAL_OK) {
-        Error_Handler();
-    }
+    CAN_TX_Enqueue(&canTxBuf, &msg);
 }
 
 void FDCAN_SendPackData(
@@ -465,29 +506,27 @@ void FDCAN_SendPackData(
         uint32_t pack_voltage
     )
 {
-	FDCAN_TxHeaderTypeDef txHeader = {0};
-	uint8_t data[8];
+    CAN_TxMsg_t msg = {0};
+	// Package message
 
-	data[0] = (uint8_t)(pack_voltage >> 24);
-    data[1] = (uint8_t)(pack_voltage >> 16);
-    data[2] = (uint8_t)(pack_voltage >> 8);
-    data[3] = (uint8_t)(pack_voltage);
+    msg.header.Identifier = CAN_PACK_DATA_MSG_ID;
+    msg.header.IdType = FDCAN_STANDARD_ID;
+    msg.header.DataLength = FDCAN_DLC_BYTES_4;
 
-    txHeader.Identifier = CAN_PACK_DATA_MSG_ID;
-    txHeader.IdType = FDCAN_STANDARD_ID;
-    txHeader.DataLength = FDCAN_DLC_BYTES_4;
+	msg.data[0] = (uint8_t)(pack_voltage >> 24);
+    msg.data[1] = (uint8_t)(pack_voltage >> 16);
+    msg.data[2] = (uint8_t)(pack_voltage >> 8);
+    msg.data[3] = (uint8_t)(pack_voltage);
 
-    if (FDCAN_AddToTxFifoQ(hfdcan, &txHeader, data) != HAL_OK) {
-        Error_Handler();
-    }
+    CAN_TX_Enqueue(&canTxBuf, &msg);
 }
 
-void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_IC], uint16_t min_voltages[TOTAL_IC], uint16_t max_temps[TOTAL_IC], uint16_t min_temps[TOTAL_IC], uint32_t packVoltage)
+void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], uint16_t max_temps[TOTAL_SEGMENTS], uint16_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage)
 {
     // Send pack votage
     FDCAN_SendPackData(hfdcan, packVoltage);
 
-	for (uint8_t i = 0; i < TOTAL_IC/2; i++) {
+	for (uint8_t i = 0; i < TOTAL_SEGMENTS; i++) {
     	// Send values
 		uint32_t can_id;
 
@@ -528,22 +567,19 @@ void FDCAN_SendFault(
      * Undertemp	-	4
      * Overtemp		-	8
      */
-	uint8_t data[4];
+    CAN_TxMsg_t msg = {0};
 	// Package message
-    data[0] = bitmask;
-    data[1] = fault_data[0];
-    data[2] = fault_data[1];
-    data[3] = fault_data[2];
 
-    // Set header
-    hTxHeader->Identifier = CAN_FAULT_MSG_ID;
-    hTxHeader->IdType = FDCAN_STANDARD_ID;
-    hTxHeader->DataLength = FDCAN_DLC_BYTES_4;
-    hTxHeader->FDFormat = FDCAN_CLASSIC_CAN;
+    msg.header.Identifier = CAN_FAULT_MSG_ID;
+    msg.header.IdType = FDCAN_STANDARD_ID;
+    msg.header.DataLength = FDCAN_DLC_BYTES_4;
 
-    if (FDCAN_AddToTxFifoQ(hfdcan, hTxHeader, data) != HAL_OK) {
-            Error_Handler();
-    }
+    msg.data[0] = bitmask;
+    msg.data[1] = fault_data[0];
+    msg.data[2] = fault_data[1];
+    msg.data[3] = fault_data[2];
+
+    CAN_TX_Enqueue(&canTxBuf, &msg);
 }
 
 void FDCAN_SendChargerMessage(uint16_t maxVoltage, uint16_t maxCurrent, uint8_t enable)
@@ -648,7 +684,7 @@ uint8_t balance_cells(int8_t total_ic, cell_asic *ic, uint16_t target_voltage)
             	}
             	else if (cell < 16) // cells 13–15 only
             	{
-            		ic[ic_idx].configb.tx_data[0] |= (1 << (cell - 12));
+            		ic[ic_idx].configb.tx_data[0] |= (1 << (cell - 8));
             	}
             	done = 0;
             }

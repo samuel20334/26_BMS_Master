@@ -50,11 +50,16 @@
 /* USER CODE BEGIN Variables */
 extern cell_asic IC[TOTAL_IC];
 
-uint16_t max_voltages[TOTAL_IC];
-uint16_t min_voltages[TOTAL_IC];
-uint16_t max_temps[TOTAL_IC/2];
-uint16_t min_temps[TOTAL_IC/2];
+uint16_t max_voltages[TOTAL_SEGMENTS];
+uint16_t min_voltages[TOTAL_SEGMENTS];
+uint16_t max_temps[TOTAL_SEGMENTS];
+uint16_t min_temps[TOTAL_SEGMENTS];
 uint32_t packVoltage = 0;
+
+uint32_t err;
+uint32_t rx;
+uint32_t tx;
+FDCAN_ErrorCountersTypeDef error_counts;
 
 uint16_t temps[TOTAL_IC][TEMPS_PER_IC];
 
@@ -67,6 +72,7 @@ volatile uint16_t ELCON_MaxVoltage = 0;
 volatile uint16_t ELCON_MaxCurrent = 0;
 volatile bool startCharging = false;
 volatile bool stopCharging = false;
+extern CAN_RingBuffer_t canTxBuf;
 
 volatile uint16_t target_voltage = 30000;
 volatile bool startBalancing = false;
@@ -79,6 +85,8 @@ extern uint16_t delta_t;
 uint16_t SoC = 0;
 
 uint8_t balancingDone = 0;
+
+FDCAN_ProtocolStatusTypeDef status;
 
 /* USER CODE END Variables */
 /* Definitions for SerialTask */
@@ -136,10 +144,10 @@ osTimerId_t ChargingTimerHandle;
 const osTimerAttr_t ChargingTimer_attributes = {
   .name = "ChargingTimer"
 };
-/* Definitions for firstMeasurement */
-osSemaphoreId_t firstMeasurementHandle;
-const osSemaphoreAttr_t firstMeasurement_attributes = {
-  .name = "firstMeasurement"
+/* Definitions for canTimer */
+osTimerId_t canTimerHandle;
+const osTimerAttr_t canTimer_attributes = {
+  .name = "canTimer"
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -168,14 +176,15 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
-  /* creation of firstMeasurement */
-  firstMeasurementHandle = osSemaphoreNew(5, 0, &firstMeasurement_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
   /* creation of ChargingTimer */
   ChargingTimerHandle = osTimerNew(ChargingTimerCallback, osTimerPeriodic, NULL, &ChargingTimer_attributes);
+
+  /* creation of canTimer */
+  canTimerHandle = osTimerNew(canTimer, osTimerPeriodic, NULL, &canTimer_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
@@ -219,7 +228,7 @@ void SerialTask(void *argument)
 {
   /* USER CODE BEGIN SerialTask */
   /* Infinite loop */
-  //osSemaphoreAcquire(firstMeasurementHandle, osWaitForever);
+  osThreadFlagsWait(0x01, osFlagsWaitAny, osWaitForever);
   TickType_t lastWakeTime = xTaskGetTickCount();
 
   for(;;)
@@ -256,19 +265,22 @@ void MeasurementTask(void *argument)
 	  //read_cell_temps(TOTAL_IC, IC);
 
 	  // 25 CODE
-	  osMutexAcquire(icLockHandle, osWaitForever);
-	  read_cell_voltages(TOTAL_IC, IC);
+	  if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
+		  read_cell_voltages(TOTAL_IC, IC);
 
-	  osMutexAcquire(tempLockHandle, osWaitForever);
-	  read_temps_25(TOTAL_IC, IC, temps);
+		  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
+			  read_temps_25(TOTAL_IC, IC, temps);
 
-	  osMutexAcquire(canDataLockHandle, osWaitForever);
-	  temp_analytics(TOTAL_IC, temps, max_temps, min_temps);
-	  osMutexRelease(tempLockHandle);
+			  if (osMutexAcquire(canDataLockHandle, osWaitForever) == osOK) {
+				  temp_analytics(TOTAL_IC, temps, max_temps, min_temps);
+				  packVoltage = voltage_analytics(TOTAL_IC, IC, max_voltages, min_voltages);
+				  osMutexRelease(canDataLockHandle);
+			  }
 
-	  packVoltage = voltage_analytics(TOTAL_IC, IC, max_voltages, min_voltages);
-	  osMutexRelease(canDataLockHandle);
-	  osMutexRelease(icLockHandle);
+			  osMutexRelease(tempLockHandle);
+		  }
+		  osMutexRelease(icLockHandle);
+	  }
 
 	  /*if (IVTS_Current == 0) {
 		  SoC = soc_ocv(packVoltage);
@@ -280,10 +292,10 @@ void MeasurementTask(void *argument)
 
 	  if (!firstMeasurementDone) {
 		  firstMeasurementDone = true;
-		  osSemaphoreRelease(firstMeasurementHandle);
-		  //osSemaphoreRelease(firstMeasurementHandle);
-		  //osSemaphoreRelease(firstMeasurementHandle);
-		  //osSemaphoreRelease(firstMeasurementHandle);
+		  osThreadFlagsSet(SerialTaskHandle, 0x01);
+		  osThreadFlagsSet(SafetyTaskHandle, 0x01);
+		  osThreadFlagsSet(CANTaskHandle, 0x01);
+		  osThreadFlagsSet(BalancingTaskHandle, 0x01);
 	  }
 
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
@@ -301,18 +313,20 @@ void MeasurementTask(void *argument)
 void SafetyTask(void *argument)
 {
   /* USER CODE BEGIN SafetyTask */
-  osSemaphoreAcquire(firstMeasurementHandle, osWaitForever);
+  osThreadFlagsWait(0x01, osFlagsWaitAny, osWaitForever);
   TickType_t lastWakeTime = xTaskGetTickCount();
   /* Infinite loop */
   for(;;)
   {
-	  osMutexAcquire(icLockHandle, osWaitForever);
-	  fault_state |= check_uv_ov_fault(TOTAL_IC, IC, UNDERVOLTAGE, OVERVOLTAGE, &fault_mask, fault_data);
-	  osMutexRelease(icLockHandle);
+	  if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
+		  fault_state |= check_uv_ov_fault(TOTAL_IC, IC, UNDERVOLTAGE, OVERVOLTAGE, &fault_mask, fault_data);
+		  osMutexRelease(icLockHandle);
+	  }
 
-	  osMutexAcquire(tempLockHandle, osWaitForever);
-	  fault_state |= check_ut_ot_fault(TOTAL_IC, temps, UNDERTEMP, OVERTEMP, &fault_mask, fault_data);
-	  osMutexRelease(tempLockHandle);
+	  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
+		  fault_state |= check_ut_ot_fault(TOTAL_IC, temps, UNDERTEMP, OVERTEMP, &fault_mask, fault_data);
+		  osMutexRelease(tempLockHandle);
+	  }
 
 	  if (fault_state) {
 		  FAULT_LOW();
@@ -333,14 +347,21 @@ void SafetyTask(void *argument)
 void CANTask(void *argument)
 {
   /* USER CODE BEGIN CANTask */
-  //osSemaphoreAcquire(firstMeasurementHandle, osWaitForever);
+  osThreadFlagsWait(0x01, osFlagsWaitAny, osWaitForever);
   TickType_t lastWakeTime = xTaskGetTickCount();
+  //osTimerStart(canTimerHandle, pdMS_TO_TICKS(100));
   /* Infinite loop */
   for(;;)
   {
-	osMutexAcquire(canDataLockHandle, osWaitForever);
-	CAN_Logging(&hfdcan1, max_voltages, min_voltages, max_temps, min_temps, packVoltage);
-	osMutexRelease(canDataLockHandle);
+	err = HAL_FDCAN_GetError(&hfdcan1);
+	tx = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
+	HAL_FDCAN_GetProtocolStatus(&hfdcan1, &status);
+	HAL_FDCAN_GetErrorCounters(&hfdcan1, &error_counts);
+
+	if (osMutexAcquire(canDataLockHandle, osWaitForever) == osOK) {
+		CAN_Logging(&hfdcan1, max_voltages, min_voltages, max_temps, min_temps, packVoltage);
+		osMutexRelease(canDataLockHandle);
+	}
 
 	if (fault_state) {
 		FDCAN_SendFault(&hfdcan1, &hTxHeader, fault_mask, fault_data);
@@ -355,6 +376,10 @@ void CANTask(void *argument)
 		FDCAN_StopCharging();
 		osTimerStop(ChargingTimerHandle);
 	}
+
+	osMutexAcquire(canDataLockHandle, osWaitForever);
+	CAN_TX_Process(&canTxBuf);
+	osMutexRelease(canDataLockHandle);
 
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
@@ -371,16 +396,18 @@ void CANTask(void *argument)
 void BalancingTask(void *argument)
 {
   /* USER CODE BEGIN BalancingTask */
-  //osSemaphoreAcquire(firstMeasurementHandle, osWaitForever);
+  osThreadFlagsWait(0x01, osFlagsWaitAny, osWaitForever);
   TickType_t lastWakeTime = xTaskGetTickCount();
   /* Infinite loop */
   for(;;)
   {
-	  osMutexAcquire(icLockHandle, osWaitForever);
-	  if (startBalancing && !balancingDone && !fault_state) {
-		  balancingDone = balance_cells(TOTAL_IC, IC, target_voltage);
+	  if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
+		  if (startBalancing && !balancingDone && !fault_state) {
+			  balancingDone = balance_cells(TOTAL_IC, IC, target_voltage);
+		  }
+		  osMutexRelease(icLockHandle);
 	  }
-	  osMutexRelease(icLockHandle);
+
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
   }
   /* USER CODE END BalancingTask */
@@ -392,6 +419,16 @@ void ChargingTimerCallback(void *argument)
   /* USER CODE BEGIN ChargingTimerCallback */
   FDCAN_SendChargerMessage(ELCON_MaxVoltage, ELCON_MaxCurrent, 0);
   /* USER CODE END ChargingTimerCallback */
+}
+
+/* canTimer function */
+void canTimer(void *argument)
+{
+  /* USER CODE BEGIN canTimer */
+  osMutexAcquire(canDataLockHandle, osWaitForever);
+  CAN_TX_Process(&canTxBuf);
+  osMutexRelease(canDataLockHandle);
+  /* USER CODE END canTimer */
 }
 
 /* Private application code --------------------------------------------------*/

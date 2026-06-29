@@ -63,7 +63,7 @@ extern osMutexId_t icLockHandle;
 extern osMutexId_t tempLockHandle;
 extern osMutexId_t canDataLockHandle;
 extern osTimerId_t ChargingTimerHandle;
-extern osSemaphoreId_t firstMeasurementHandle;
+extern osTimerId_t canTimerHandle;
 
 /* Exported function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -75,6 +75,7 @@ void SafetyTask(void *argument);
 void CANTask(void *argument);
 void BalancingTask(void *argument);
 void ChargingTimerCallback(void *argument);
+void canTimer(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 

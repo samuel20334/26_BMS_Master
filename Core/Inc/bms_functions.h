@@ -11,6 +11,7 @@
 #include "ltc6813.h"
 #include "elcon.h"
 
+#define CAN_TX_BUFFER_SIZE 256
 #define CAN_FAULT_MSG_ID 0xF0
 #define CAN_PACK_DATA_MSG_ID 0xF1
 #define CAN_SEGMENT1_DATA_MSG_ID 0xF2
@@ -46,6 +47,19 @@ typedef enum {
     CAN_MODE_CHARGING,
 } CAN2_Mode_e;
 
+typedef struct
+{
+    FDCAN_TxHeaderTypeDef header;
+    uint8_t data[8];
+} CAN_TxMsg_t;
+
+typedef struct
+{
+    CAN_TxMsg_t buffer[CAN_TX_BUFFER_SIZE];
+    volatile uint16_t head;
+    volatile uint16_t tail;
+} CAN_RingBuffer_t;
+
 
 uint16_t code_to_mV(uint16_t code);
 
@@ -67,9 +81,9 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
 
 bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data);
 
-uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t *max_voltages, uint16_t *min_voltages);
+uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS]);
 
-void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t *max_temps, uint16_t *min_temps);
+void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t max_temps[TOTAL_SEGMENTS], uint16_t min_temps[TOTAL_SEGMENTS]);
 
 void FDCAN1_Init(FDCAN_HandleTypeDef* fdcanHandle);
 
@@ -89,7 +103,7 @@ void FDCAN_SendPackData(
         uint32_t pack_voltage
     );
 
-void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_IC], uint16_t min_voltages[TOTAL_IC], uint16_t max_temps[TOTAL_IC], uint16_t min_temps[TOTAL_IC], uint32_t packVoltage);
+void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], uint16_t max_temps[TOTAL_SEGMENTS], uint16_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage);
 
 void FDCAN_SendFault(
         FDCAN_HandleTypeDef* hfdcan,
