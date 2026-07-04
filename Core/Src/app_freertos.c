@@ -269,7 +269,7 @@ void MeasurementTask(void *argument)
 		  read_cell_voltages(TOTAL_IC, IC);
 
 		  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
-			  read_temps_25(TOTAL_IC, IC, temps);
+			  read_cell_temps(TOTAL_IC, IC);
 
 			  if (osMutexAcquire(canDataLockHandle, osWaitForever) == osOK) {
 				  temp_analytics(TOTAL_IC, temps, max_temps, min_temps);

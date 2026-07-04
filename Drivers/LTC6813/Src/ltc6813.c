@@ -2289,7 +2289,7 @@ void LTC6813_init_cfg(uint8_t total_ic, cell_asic *ic)
 
 	}
 
-	bool gpio[5] = {true, false, false, true, true};
+	bool gpio[5] = {true, true, true, true, true};
 	for (int i=0;i<total_ic;i++) {
 	  	LTC6813_set_cfgr_refon(i, ic, true);
 	  	LTC6813_set_cfgr_gpio(i, ic, gpio);
@@ -2386,6 +2386,11 @@ void LTC6813_init_cfgb(uint8_t total_ic,cell_asic *ic)
             ic[current_ic].configb.tx_data[j] = 0;
         }
     }
+
+	bool gpio[4] = {true, true, true, true};
+	for (int i=0;i<total_ic;i++) {
+	  	LTC6813_set_cfgrb_gpio_b(i, ic, gpio);
+	}
 }
 
 /* Helper Function to set the configuration register B */

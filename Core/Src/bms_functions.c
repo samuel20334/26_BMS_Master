@@ -154,9 +154,7 @@ void read_cell_temps(uint8_t total_ic, cell_asic *ic) {
 	wakeup_idle(total_ic);
 	HAL_Delay(1);
 
-	for (int j = 1; j<5; j++) {
-		LTC6813_rdaux(j, TOTAL_IC, IC);
-	}
+	LTC6813_rdaux(0, total_ic, ic);
 
 }
 
