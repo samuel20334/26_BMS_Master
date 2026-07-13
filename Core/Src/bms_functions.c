@@ -59,8 +59,11 @@ int binary_search(const uint16_t *array, uint16_t size, uint16_t target) {
 	}
 }
 
-float_t ntc_to_temp(uint16_t ntc_voltage) {
-    return ((-3.1598 * ((float_t)ntc_voltage/100)) + 81.327)*100;
+uint16_t ntc_to_temp(uint16_t ntc_voltage, uint16_t vref2) {
+    float_t resistance = (55000*ntc_voltage)/(vref2-ntc_voltage);
+	float_t temp = -21.65*logf(resistance) + 275.02;
+	uint16_t temp_int = (uint16_t)(temp*1000);
+	return temp_int;
 }
 
 uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS]) {
@@ -99,28 +102,28 @@ uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltage
 	return packVoltage;
 }
 
-void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t max_temps[TOTAL_SEGMENTS], uint16_t min_temps[TOTAL_SEGMENTS]) {
+void temp_analytics(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS]) {
 
-	for (uint8_t seg_idx=0;seg_idx<total_ic-1;seg_idx++) {
-		uint16_t max_temp = 65535;
-		uint16_t min_temp = 0;
+	for (uint8_t seg_idx=0;seg_idx<TOTAL_SEGMENTS;seg_idx++) {
+		int32_t max_temp = 0;
+		int32_t min_temp = 60;
 
 		for (uint8_t ch = 1;ch < TEMPS_PER_IC;ch++) {
-			uint16_t voltage1_mV = code_to_mV(temps[2*seg_idx][ch]);
-			uint16_t voltage2_mV = code_to_mV(temps[2*seg_idx+1][ch]);
+			int32_t temp1 = temps[2*seg_idx][ch];
+			int32_t temp2 = temps[2*seg_idx+1][ch];
 
-			if (voltage1_mV < max_temp) {
-				max_temp = voltage1_mV;
+			if (temp1 > max_temp) {
+				max_temp = temp1;
 			}
-			if (voltage2_mV < max_temp) {
-				max_temp = voltage1_mV;
+			if (temp2 < max_temp) {
+				max_temp = temp2;
 			}
 
-			if (voltage1_mV > min_temp) {
-				min_temp = voltage1_mV;
+			if (temp1 < min_temp) {
+				min_temp = temp1;
 			}
-			if (voltage2_mV > min_temp) {
-				min_temp = voltage2_mV;
+			if (temp2 < min_temp) {
+				min_temp = temp2;
 			}
 		}
 
@@ -144,7 +147,7 @@ void read_cell_voltages(uint8_t total_ic, cell_asic *ic) {
 	LTC6813_rdcv(0, total_ic, ic);
 }
 
-void read_cell_temps(uint8_t total_ic, cell_asic *ic) {
+void read_cell_temps(uint8_t total_ic, cell_asic *ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC]) {
 	wakeup_idle(total_ic);
 	HAL_Delay(1);
 
@@ -155,6 +158,25 @@ void read_cell_temps(uint8_t total_ic, cell_asic *ic) {
 	HAL_Delay(1);
 
 	LTC6813_rdaux(0, total_ic, ic);
+
+	for (int ic_idx = 0;ic_idx < total_ic;ic_idx++) {
+
+		uint16_t vref2 = ic[ic_idx].aux.a_codes[5];
+
+		for (int ch = 0;ch < TEMPS_PER_IC+1;ch++) {
+
+			int temp_channel = ch;
+
+			if (ch == 5) continue; // this is where the reference voltage is stored
+
+			if (ch > 5) {
+				temp_channel = ch - 1;	// offset by one because vref two stored at index 5
+			}
+
+			uint16_t ch_temp = ntc_to_temp(ic[ic_idx].aux.a_codes[temp_channel], vref2);
+			temps[ic_idx][temp_channel] = ch_temp;
+		}
+	}
 
 }
 
@@ -192,7 +214,7 @@ void print_cell_voltages(uint8_t total_ic, cell_asic *ic)
     }
 }
 
-void print_cell_temps(uint8_t total_ic, cell_asic *ic)
+void print_cell_temps(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC])
 {
     for (uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++)
     {
@@ -200,11 +222,11 @@ void print_cell_temps(uint8_t total_ic, cell_asic *ic)
         uart_print_uint(ic_idx);
         uart_print(",");
 
-        // Loop through all cells in this IC
-        for (uint8_t cell = 0; cell < TEMPS_PER_IC; cell++)
+        // Loop through all channels in this IC
+        for (uint8_t ch = 0; ch < TEMPS_PER_IC; ch++)
         {
-            uint16_t mv = (ic[ic_idx].aux.a_codes[cell])/10;  // convert to mV
-            uart_print_uint(mv);
+            int32_t temp = temps[ic_idx][ch];
+            uart_print_int(temp);
             uart_print(",");
         }
 
@@ -281,17 +303,17 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     return fault;
 }
 
-bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
+bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
 {
     bool fault = false;
     uint8_t fault_counter = 0;
 
-    for(uint8_t ic_idx = 0; ic_idx < total_ic-1; ic_idx++)
+    for(uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++)
     {
-        for(uint8_t ch = 1; ch < TEMPS_PER_IC; ch++)
+        for(uint8_t ch = 0; ch < TEMPS_PER_IC; ch++)
         {
 
-            if(temps[ic_idx][ch] > ut)
+            if(temps[ic_idx][ch] < ut)
             {
                 *mask |= FAULT_UNDERTEMP;
                 fault = true;
@@ -304,7 +326,7 @@ bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC],
         		fault_counter++;
 
             }
-            else if(temps[ic_idx][ch] < ot)
+            else if(temps[ic_idx][ch] > ot)
             {
             	*mask |= FAULT_OVERTEMP;
             	fault = true;
@@ -326,14 +348,14 @@ bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC],
 void FDCAN1_Init(FDCAN_HandleTypeDef* fdcanHandle)
 {
     /* IVT Current Sensor CAN IDs */
-    FDCAN_FilterTypeDef filterConfig;
+    /*FDCAN_FilterTypeDef filterConfig;
 
     filterConfig.IdType = FDCAN_STANDARD_ID;
     filterConfig.FilterIndex = 0;
     filterConfig.FilterType = FDCAN_FILTER_MASK;
     filterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     filterConfig.FilterID1 = 0x520;
-    filterConfig.FilterID2 = 0x5F0;
+    filterConfig.FilterID2 = 0x5F0; */
 
     /*if (HAL_FDCAN_ConfigFilter(fdcanHandle, &filterConfig) != HAL_OK)
     {
@@ -369,14 +391,14 @@ void FDCAN1_Init(FDCAN_HandleTypeDef* fdcanHandle)
 void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle)
 {
     /* ELCON Charger CAN IDs */
-    FDCAN_FilterTypeDef filterConfig;
+    /*FDCAN_FilterTypeDef filterConfig;
 
     filterConfig.IdType = FDCAN_EXTENDED_ID;
     filterConfig.FilterIndex = 0;
     filterConfig.FilterType = FDCAN_FILTER_DUAL;
     filterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
     filterConfig.FilterID1 = 0x1806E5F4; // BMS -> Charger
-    filterConfig.FilterID2 = 0x18FF50E5; // Charger -> Broadcast
+    filterConfig.FilterID2 = 0x18FF50E5; // Charger -> Broadcast */
 
     /*if (HAL_FDCAN_ConfigFilter(fdcanHandle, &filterConfig) != HAL_OK)
     {
@@ -434,7 +456,7 @@ static HAL_StatusTypeDef FDCAN_AddToTxFifoQ(
     return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan, pTxHeader, txData);
 }
 
-bool CAN_TX_Enqueue(CAN_RingBuffer_t *q, CAN_TxMsg_t *msg)
+bool CAN_TX_Enqueue(volatile CAN_RingBuffer_t *q, CAN_TxMsg_t *msg)
 {
     uint16_t next = (q->head + 1) % CAN_TX_BUFFER_SIZE;
 
@@ -480,8 +502,8 @@ void FDCAN_SendCellData(
 		uint32_t can_id,
         uint16_t minV,
         uint16_t maxV,
-        int16_t minT,
-        int16_t maxT
+        int32_t minT,
+        int32_t maxT
     )
 {
     CAN_TxMsg_t msg = {0};
@@ -531,7 +553,7 @@ void FDCAN_SendPackData(
     CAN_TX_Enqueue(&canTxBuf, &msg);
 }
 
-void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], uint16_t max_temps[TOTAL_SEGMENTS], uint16_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage)
+void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage)
 {
     // Send pack votage
     FDCAN_SendPackData(hfdcan, packVoltage);
@@ -558,9 +580,7 @@ void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMEN
 				break;
 		}
 
-    	float ntcMin = ntc_to_temp((float)max_temps[i]);
-		float ntcMax = ntc_to_temp((float)min_temps[i]);
-    	FDCAN_SendCellData(hfdcan, can_id, min_voltages[i], max_voltages[i], ntcMin, ntcMax);
+    	FDCAN_SendCellData(hfdcan, can_id, min_voltages[i], max_voltages[i], min_temps[i], max_temps[i]);
     }
 }
 

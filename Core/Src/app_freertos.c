@@ -36,8 +36,8 @@
 #define TOTAL_IC 10
 #define UNDERVOLTAGE 27000
 #define OVERVOLTAGE 41000
-#define UNDERTEMP 25700
-#define OVERTEMP 9900
+#define UNDERTEMP 0
+#define OVERTEMP 60000
 
 /* USER CODE END PD */
 
@@ -52,8 +52,8 @@ extern cell_asic IC[TOTAL_IC];
 
 uint16_t max_voltages[TOTAL_SEGMENTS];
 uint16_t min_voltages[TOTAL_SEGMENTS];
-uint16_t max_temps[TOTAL_SEGMENTS];
-uint16_t min_temps[TOTAL_SEGMENTS];
+int32_t max_temps[TOTAL_SEGMENTS];
+int32_t min_temps[TOTAL_SEGMENTS];
 uint32_t packVoltage = 0;
 
 uint32_t err;
@@ -61,7 +61,7 @@ uint32_t rx;
 uint32_t tx;
 FDCAN_ErrorCountersTypeDef error_counts;
 
-uint16_t temps[TOTAL_IC][TEMPS_PER_IC];
+int32_t temps[TOTAL_IC][TEMPS_PER_IC];
 
 bool firstMeasurementDone = false;
 bool fault_state = false;
@@ -235,11 +235,9 @@ void SerialTask(void *argument)
   {
 	  osMutexAcquire(icLockHandle, osWaitForever);
 	  print_cell_voltages(TOTAL_IC, IC);
-	  print_temps_25(temps);	// 25 CODE
+	  print_cell_temps(TOTAL_IC, temps);
 	  print_faults(fault_mask);
 	  osMutexRelease(icLockHandle);
-
-	  //print_cell_temps(TOTAL_IC, IC);			// 26 CODE
 
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
@@ -269,7 +267,7 @@ void MeasurementTask(void *argument)
 		  read_cell_voltages(TOTAL_IC, IC);
 
 		  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
-			  read_cell_temps(TOTAL_IC, IC);
+			  read_cell_temps(TOTAL_IC, IC, temps);
 
 			  if (osMutexAcquire(canDataLockHandle, osWaitForever) == osOK) {
 				  temp_analytics(TOTAL_IC, temps, max_temps, min_temps);
