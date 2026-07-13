@@ -4656,21 +4656,21 @@ static void MX_FDCAN1_Init(void)
  80024ec:	4b16      	ldr	r3, [pc, #88]	@ (8002548 <MX_FDCAN1_Init+0x84>)
  80024ee:	2200      	movs	r2, #0
  80024f0:	749a      	strb	r2, [r3, #18]
-  hfdcan1.Init.NominalPrescaler = 2;
+  hfdcan1.Init.NominalPrescaler = 1;
  80024f2:	4b15      	ldr	r3, [pc, #84]	@ (8002548 <MX_FDCAN1_Init+0x84>)
- 80024f4:	2202      	movs	r2, #2
+ 80024f4:	2201      	movs	r2, #1
  80024f6:	615a      	str	r2, [r3, #20]
-  hfdcan1.Init.NominalSyncJumpWidth = 1;
+  hfdcan1.Init.NominalSyncJumpWidth = 8;
  80024f8:	4b13      	ldr	r3, [pc, #76]	@ (8002548 <MX_FDCAN1_Init+0x84>)
- 80024fa:	2201      	movs	r2, #1
+ 80024fa:	2208      	movs	r2, #8
  80024fc:	619a      	str	r2, [r3, #24]
-  hfdcan1.Init.NominalTimeSeg1 = 89;
+  hfdcan1.Init.NominalTimeSeg1 = 218;
  80024fe:	4b12      	ldr	r3, [pc, #72]	@ (8002548 <MX_FDCAN1_Init+0x84>)
- 8002500:	2259      	movs	r2, #89	@ 0x59
+ 8002500:	22da      	movs	r2, #218	@ 0xda
  8002502:	61da      	str	r2, [r3, #28]
-  hfdcan1.Init.NominalTimeSeg2 = 35;
+  hfdcan1.Init.NominalTimeSeg2 = 31;
  8002504:	4b10      	ldr	r3, [pc, #64]	@ (8002548 <MX_FDCAN1_Init+0x84>)
- 8002506:	2223      	movs	r2, #35	@ 0x23
+ 8002506:	221f      	movs	r2, #31
  8002508:	621a      	str	r2, [r3, #32]
   hfdcan1.Init.DataPrescaler = 1;
  800250a:	4b0f      	ldr	r3, [pc, #60]	@ (8002548 <MX_FDCAN1_Init+0x84>)
@@ -4797,9 +4797,9 @@ static void MX_FDCAN2_Init(void)
  80025ae:	4b09      	ldr	r3, [pc, #36]	@ (80025d4 <MX_FDCAN2_Init+0x84>)
  80025b0:	2200      	movs	r2, #0
  80025b2:	635a      	str	r2, [r3, #52]	@ 0x34
-  hfdcan2.Init.ExtFiltersNbr = 0;
+  hfdcan2.Init.ExtFiltersNbr = 1;
  80025b4:	4b07      	ldr	r3, [pc, #28]	@ (80025d4 <MX_FDCAN2_Init+0x84>)
- 80025b6:	2200      	movs	r2, #0
+ 80025b6:	2201      	movs	r2, #1
  80025b8:	639a      	str	r2, [r3, #56]	@ 0x38
   hfdcan2.Init.TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION;
  80025ba:	4b06      	ldr	r3, [pc, #24]	@ (80025d4 <MX_FDCAN2_Init+0x84>)

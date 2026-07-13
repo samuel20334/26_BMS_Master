@@ -490,6 +490,12 @@ void FDCAN_SendCellData(
     msg.header.Identifier = can_id;
     msg.header.IdType = FDCAN_STANDARD_ID;
     msg.header.DataLength = FDCAN_DLC_BYTES_8;
+    msg.header.TxFrameType = FDCAN_DATA_FRAME;
+    msg.header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    msg.header.BitRateSwitch = FDCAN_BRS_OFF;
+    msg.header.FDFormat = FDCAN_CLASSIC_CAN;
+    msg.header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+    msg.header.MessageMarker = 0;
 
 	packU16(minV, msg.data + 0);
     packU16(maxV, msg.data + 2);
@@ -510,6 +516,12 @@ void FDCAN_SendPackData(
     msg.header.Identifier = CAN_PACK_DATA_MSG_ID;
     msg.header.IdType = FDCAN_STANDARD_ID;
     msg.header.DataLength = FDCAN_DLC_BYTES_4;
+    msg.header.TxFrameType = FDCAN_DATA_FRAME;
+    msg.header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    msg.header.BitRateSwitch = FDCAN_BRS_OFF;
+    msg.header.FDFormat = FDCAN_CLASSIC_CAN;
+    msg.header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+    msg.header.MessageMarker = 0;
 
 	msg.data[0] = (uint8_t)(pack_voltage >> 24);
     msg.data[1] = (uint8_t)(pack_voltage >> 16);
@@ -571,6 +583,12 @@ void FDCAN_SendFault(
     msg.header.Identifier = CAN_FAULT_MSG_ID;
     msg.header.IdType = FDCAN_STANDARD_ID;
     msg.header.DataLength = FDCAN_DLC_BYTES_4;
+    msg.header.TxFrameType = FDCAN_DATA_FRAME;
+    msg.header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    msg.header.BitRateSwitch = FDCAN_BRS_OFF;
+    msg.header.FDFormat = FDCAN_CLASSIC_CAN;
+    msg.header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+    msg.header.MessageMarker = 0;
 
     msg.data[0] = bitmask;
     msg.data[1] = fault_data[0];
