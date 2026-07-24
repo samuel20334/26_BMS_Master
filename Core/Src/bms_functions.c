@@ -60,7 +60,7 @@ int binary_search(const uint16_t *array, uint16_t size, uint16_t target) {
 }
 
 uint16_t ntc_to_temp(uint16_t ntc_voltage, uint16_t vref2) {
-    float_t resistance = (55000*ntc_voltage)/(vref2-ntc_voltage);
+    float_t resistance = (55000*ntc_voltage)/(vref2-ntc_voltage+0.0000001);
 	float_t temp = -21.65*logf(resistance) + 275.02;
 	uint16_t temp_int = (uint16_t)(temp*1000);
 	return temp_int;
@@ -474,20 +474,20 @@ bool CAN_TX_Enqueue(volatile CAN_RingBuffer_t *q, CAN_TxMsg_t *msg)
 
 void CAN_TX_Process(CAN_RingBuffer_t *q)
 {
-    	if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1) == 0)
+    	if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2) == 0)
         {
     		return;
         }
 
         CAN_TxMsg_t *msg = &q->buffer[q->tail];
 
-        if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1,
+        if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2,
                                           &msg->header,
                                           msg->data) == HAL_OK)
         {
             q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
         }
-        else if (HAL_FDCAN_GetError(&hfdcan1) & HAL_FDCAN_ERROR_FIFO_FULL)
+        else if (HAL_FDCAN_GetError(&hfdcan2) & HAL_FDCAN_ERROR_FIFO_FULL)
         {
             return;
         }
