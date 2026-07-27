@@ -66,7 +66,7 @@ uint16_t code_to_mV(uint16_t code);
 
 int binary_search(const uint16_t *array, uint16_t size, uint16_t target);
 
-uint16_t ntc_to_temp(uint16_t ntc_voltage, uint16_t vref2);
+int32_t ntc_to_temp(uint16_t ntc_voltage, uint16_t vref2);
 
 void read_cell_voltages(uint8_t total_ic, cell_asic *ic);
 
@@ -84,11 +84,11 @@ void print_faults(uint8_t fault_mask);
 
 bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint8_t *mask, uint8_t *data);
 
-bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data);
+bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data);
 
 uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS]);
 
-void temp_analytics(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS]);
+void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS]);
 
 void FDCAN1_Init(FDCAN_HandleTypeDef* fdcanHandle);
 

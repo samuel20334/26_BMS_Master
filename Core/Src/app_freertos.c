@@ -36,8 +36,8 @@
 #define TOTAL_IC 10
 #define UNDERVOLTAGE 27000
 #define OVERVOLTAGE 41000
-#define UNDERTEMP 0
-#define OVERTEMP 60000
+#define UNDERTEMP 25600
+#define OVERTEMP 9900
 
 /* USER CODE END PD */
 
@@ -61,7 +61,7 @@ uint32_t rx;
 uint32_t tx;
 FDCAN_ErrorCountersTypeDef error_counts;
 
-int32_t temps[TOTAL_IC][TEMPS_PER_IC];
+uint16_t temps[TOTAL_IC][TEMPS_PER_IC];
 
 bool firstMeasurementDone = false;
 bool fault_state = false;
@@ -267,7 +267,7 @@ void MeasurementTask(void *argument)
 		  read_cell_voltages(TOTAL_IC, IC);
 
 		  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
-			  read_cell_temps(TOTAL_IC, IC, temps);
+			  read_temps_25(TOTAL_IC, IC, temps);
 
 			  if (osMutexAcquire(canDataLockHandle, osWaitForever) == osOK) {
 				  temp_analytics(TOTAL_IC, temps, max_temps, min_temps);
@@ -376,7 +376,9 @@ void CANTask(void *argument)
 	}
 
 	osMutexAcquire(canDataLockHandle, osWaitForever);
-	CAN_TX_Process(&canTxBuf);
+	while (canTxBuf.head != canTxBuf.tail) {
+		CAN_TX_Process(&canTxBuf);
+	}
 	osMutexRelease(canDataLockHandle);
 
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));

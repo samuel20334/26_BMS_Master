@@ -4,6 +4,6 @@
 ../Core/Src/app_freertos.c:254:6:MeasurementTask	24	static
 ../Core/Src/app_freertos.c:311:6:SafetyTask	32	static
 ../Core/Src/app_freertos.c:345:6:CANTask	32	static
-../Core/Src/app_freertos.c:394:6:BalancingTask	24	static
-../Core/Src/app_freertos.c:415:6:ChargingTimerCallback	16	static
-../Core/Src/app_freertos.c:423:6:canTimer	16	static
+../Core/Src/app_freertos.c:396:6:BalancingTask	24	static
+../Core/Src/app_freertos.c:417:6:ChargingTimerCallback	16	static
+../Core/Src/app_freertos.c:425:6:canTimer	16	static

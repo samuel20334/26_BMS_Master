@@ -59,10 +59,11 @@ int binary_search(const uint16_t *array, uint16_t size, uint16_t target) {
 	}
 }
 
-uint16_t ntc_to_temp(uint16_t ntc_voltage, uint16_t vref2) {
-    float_t resistance = (55000*ntc_voltage)/(vref2-ntc_voltage+0.0000001);
-	float_t temp = -21.65*logf(resistance) + 275.02;
-	uint16_t temp_int = (uint16_t)(temp*1000);
+int32_t ntc_to_temp(uint16_t ntc_voltage, uint16_t vref2) {
+    //float_t resistance = (55000*ntc_voltage)/(vref2-ntc_voltage+0.0000001);
+	//float_t temp = -21.65*logf(resistance) + 275.02;
+	float_t temp = (-3.1598 * ((float_t)ntc_voltage/1000)) + 81.327;
+	int32_t temp_int = (int32_t)(temp*1000);
 	return temp_int;
 }
 
@@ -102,15 +103,15 @@ uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltage
 	return packVoltage;
 }
 
-void temp_analytics(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS]) {
+void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS]) {
 
 	for (uint8_t seg_idx=0;seg_idx<TOTAL_SEGMENTS;seg_idx++) {
 		int32_t max_temp = 0;
-		int32_t min_temp = 60;
+		int32_t min_temp = 60000;
 
 		for (uint8_t ch = 1;ch < TEMPS_PER_IC;ch++) {
-			int32_t temp1 = temps[2*seg_idx][ch];
-			int32_t temp2 = temps[2*seg_idx+1][ch];
+			int32_t temp1 = ntc_to_temp(temps[2*seg_idx][ch], 0);
+			int32_t temp2 = ntc_to_temp(temps[2*seg_idx+1][ch], 0);
 
 			if (temp1 > max_temp) {
 				max_temp = temp1;
@@ -273,7 +274,7 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     bool fault = false;
     uint8_t fault_counter = 0;
 
-    for (uint8_t ic_idx = 0; ic_idx < 9; ic_idx++) {
+    for (uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++) {
         for (uint8_t cell = 0; cell < CELLS_PER_IC; cell++) {
         	if (ic[ic_idx].cells.c_codes[cell] < uv) {
         		*mask |= FAULT_UNDERVOLTAGE;
@@ -303,17 +304,17 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     return fault;
 }
 
-bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
+bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
 {
     bool fault = false;
     uint8_t fault_counter = 0;
 
     for(uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++)
     {
-        for(uint8_t ch = 0; ch < TEMPS_PER_IC; ch++)
+        for(uint8_t ch = 1; ch < TEMPS_PER_IC; ch++)
         {
 
-            if(temps[ic_idx][ch] < ut)
+            if(temps[ic_idx][ch] > ut)
             {
                 *mask |= FAULT_UNDERTEMP;
                 fault = true;
@@ -326,7 +327,7 @@ bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], 
         		fault_counter++;
 
             }
-            else if(temps[ic_idx][ch] > ot)
+            else if(temps[ic_idx][ch] < ot)
             {
             	*mask |= FAULT_OVERTEMP;
             	fault = true;
