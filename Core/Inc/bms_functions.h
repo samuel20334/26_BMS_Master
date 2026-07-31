@@ -79,7 +79,7 @@ void print_cell_temps(uint8_t total_ic, cell_asic *ic);
 
 bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint8_t *mask, uint8_t *data);
 
-bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data);
+bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data);
 
 uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS]);
 

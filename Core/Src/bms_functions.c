@@ -281,19 +281,25 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     return fault;
 }
 
-bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
+bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
 {
     bool fault = false;
     uint8_t fault_counter = 0;
 
     for(uint8_t ic_idx = 0; ic_idx < total_ic-1; ic_idx++)
     {
-        for(uint8_t ch = 1; ch < TEMPS_PER_IC; ch++)
+        for(uint8_t ch = 0; ch < TEMPS_PER_IC; ch++)
         {
 
-            if(ic_idx == 5 && ch == 1) continue;
+        	if(ic_idx == 5 && ch == 0) continue;
 
-        	if(temps[ic_idx][ch] > ut)
+        	uint8_t temp_ch;
+
+            if (ch == 5) {
+            	temp_ch = 6;
+            }
+
+        	if(ic[ic_idx].aux.a_codes[temp_ch] > ut)
             {
                 *mask |= FAULT_UNDERTEMP;
                 fault = true;
@@ -306,7 +312,7 @@ bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC],
         		fault_counter++;
 
             }
-            else if(temps[ic_idx][ch] < ot)
+            else if(ic[ic_idx].aux.a_codes[temp_ch] < ot)
             {
             	*mask |= FAULT_OVERTEMP;
             	fault = true;

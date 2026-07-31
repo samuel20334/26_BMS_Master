@@ -324,7 +324,7 @@ void SafetyTask(void *argument)
 	  }
 
 	  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
-		  fault_state |= check_ut_ot_fault(TOTAL_IC, temps, UNDERTEMP, OVERTEMP, &fault_mask, fault_data);
+		  fault_state |= check_ut_ot_fault(TOTAL_IC, IC, UNDERTEMP, OVERTEMP, &fault_mask, fault_data);
 		  osMutexRelease(tempLockHandle);
 	  }
 
