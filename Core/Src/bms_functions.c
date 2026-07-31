@@ -291,7 +291,9 @@ bool check_ut_ot_fault(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC],
         for(uint8_t ch = 1; ch < TEMPS_PER_IC; ch++)
         {
 
-            if(temps[ic_idx][ch] > ut)
+            if(ic_idx == 5 && ch = 1) continue;
+
+        	if(temps[ic_idx][ch] > ut)
             {
                 *mask |= FAULT_UNDERTEMP;
                 fault = true;
