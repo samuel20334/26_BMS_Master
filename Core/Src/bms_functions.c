@@ -441,7 +441,7 @@ void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle)
 static HAL_StatusTypeDef FDCAN_AddToTxFifoQ(
     FDCAN_HandleTypeDef* hfdcan,
     const FDCAN_TxHeaderTypeDef *pTxHeader,
-    const uint8_t* txData)
+    uint8_t* txData)
 {
     uint32_t start = HAL_GetTick();
     const uint32_t timeout_ms = 10;
@@ -475,14 +475,14 @@ bool CAN_TX_Enqueue(volatile CAN_RingBuffer_t *q, CAN_TxMsg_t *msg)
 
 void CAN_TX_Process(CAN_RingBuffer_t *q)
 {
-    	if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2) == 0)
+    	/*if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2) == 0)
         {
     		return;
-        }
+        }*/
 
         CAN_TxMsg_t *msg = &q->buffer[q->tail];
 
-        if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2,
+        /*if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2,
                                           &msg->header,
                                           msg->data) == HAL_OK)
         {
@@ -495,7 +495,10 @@ void CAN_TX_Process(CAN_RingBuffer_t *q)
         else
         {
             q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
-        }
+        }*/
+
+        FDCAN_AddToTxFifoQ(&hfdcan2, &msg->header, &msg->data);
+        q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
 }
 
 void FDCAN_SendCellData(
