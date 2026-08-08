@@ -74,7 +74,7 @@ volatile bool startCharging = false;
 volatile bool stopCharging = false;
 extern CAN_RingBuffer_t canTxBuf;
 
-volatile uint16_t target_voltage = 30000;
+volatile uint16_t target_voltage = 34000;
 volatile bool startBalancing = false;
 volatile bool stopBalancing = false;
 
@@ -402,13 +402,13 @@ void BalancingTask(void *argument)
   for(;;)
   {
 	  if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
-		  if (startBalancing && !balancingDone && !fault_state) {
-			  balancingDone = balance_cells(TOTAL_IC, IC, target_voltage);
+		  if (!balancingDone) {
+			  //balancingDone = balance_cells(TOTAL_IC, IC, target_voltage);
 		  }
 		  osMutexRelease(icLockHandle);
 	  }
 
-	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END BalancingTask */
 }
