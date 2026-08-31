@@ -71,12 +71,21 @@ cell_asic IC[TOTAL_IC];
 extern uint8_t rxData2[8];
 static uint8_t uartRxData[8] = {0};
 
-uint16_t ELCON_Voltage;
-uint16_t ELCON_Current;
+extern uint16_t ELCON_MaxVoltage;
+extern uint16_t ELCON_MaxCurrent;
 uint8_t ELCON_Status;
 atomic_flag ELCON_FeedbackReceived;
 
-extern bool CAN2_StartCharging;
+uint32_t IVTS_Current;
+uint32_t lastWakeTime = 0;
+uint16_t delta_t = 0;
+
+extern bool startCharging;
+extern bool stopCharging;
+
+extern uint16_t target_voltage;
+extern bool startBalancing;
+extern bool stopBalancing;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -152,11 +161,16 @@ int main(void)
   FDCAN2_Init(&hfdcan2);
   HAL_TIM_Base_Start(&htim2);
   FAULT_HIGH();
+  if (HAL_UART_Receive_IT(&huart1, uartRxData, 6) != HAL_OK)
+  {
+      Error_Handler();
+  }
 
+  wakeup_sleep(TOTAL_IC);
+  wakeup_idle(TOTAL_IC);
   LTC6813_init_reg_limits(TOTAL_IC, IC);
   LTC6813_init_cfg(TOTAL_IC, IC);
   LTC6813_init_cfgb(TOTAL_IC, IC);
-
   LTC6813_wrcfg(TOTAL_IC, IC);
   /* USER CODE END 2 */
 
@@ -289,10 +303,10 @@ static void MX_FDCAN1_Init(void)
   hfdcan1.Init.AutoRetransmission = ENABLE;
   hfdcan1.Init.TransmitPause = DISABLE;
   hfdcan1.Init.ProtocolException = DISABLE;
-  hfdcan1.Init.NominalPrescaler = 25;
-  hfdcan1.Init.NominalSyncJumpWidth = 1;
-  hfdcan1.Init.NominalTimeSeg1 = 15;
-  hfdcan1.Init.NominalTimeSeg2 = 4;
+  hfdcan1.Init.NominalPrescaler = 1;
+  hfdcan1.Init.NominalSyncJumpWidth = 8;
+  hfdcan1.Init.NominalTimeSeg1 = 218;
+  hfdcan1.Init.NominalTimeSeg2 = 31;
   hfdcan1.Init.DataPrescaler = 1;
   hfdcan1.Init.DataSyncJumpWidth = 1;
   hfdcan1.Init.DataTimeSeg1 = 1;
@@ -331,10 +345,10 @@ static void MX_FDCAN2_Init(void)
   hfdcan2.Init.AutoRetransmission = ENABLE;
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
-  hfdcan2.Init.NominalPrescaler = 25;
+  hfdcan2.Init.NominalPrescaler = 10;
   hfdcan2.Init.NominalSyncJumpWidth = 1;
-  hfdcan2.Init.NominalTimeSeg1 = 15;
-  hfdcan2.Init.NominalTimeSeg2 = 4;
+  hfdcan2.Init.NominalTimeSeg1 = 19;
+  hfdcan2.Init.NominalTimeSeg2 = 5;
   hfdcan2.Init.DataPrescaler = 1;
   hfdcan2.Init.DataSyncJumpWidth = 1;
   hfdcan2.Init.DataTimeSeg1 = 1;
@@ -576,7 +590,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
+  htim2.Init.Prescaler = 249;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 4294967295;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -620,9 +634,9 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 0;
+  htim6.Init.Prescaler = 24999;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 65535;
+  htim6.Init.Period = 9999;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -755,8 +769,8 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
             Error_Handler();
         }
 
-        // Update feedback variables
-        if (rxHeader2.Identifier == ELCON_BROADCAST_ID) {
+        // Update feedback variables  // from Jacob's code I don't think this is used for anything - Sam
+        /*if (rxHeader2.Identifier == ELCON_BROADCAST_ID) {
             if (atomic_flag_test_and_set_explicit(&ELCON_FeedbackReceived, memory_order_acquire)) {
                 // Update voltage
                 ELCON_Voltage = (uint16_t)((rxData2[0] << 8) | rxData2[1]);
@@ -765,26 +779,64 @@ void HAL_FDCAN_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo1ITs)
 
                 atomic_flag_clear_explicit(&ELCON_FeedbackReceived, memory_order_release);
             }
-        }
+        }*/
+
+        /*if (rxHeader2.Identifier == CAN_IVTS_CURRENT_ID) {
+        	IVTS_Current =
+        	    ((uint32_t)rxData2[2] << 24) |
+        	    ((uint32_t)rxData2[3] << 16) |
+        	    ((uint32_t)rxData2[4] << 8)  |
+        	    ((uint32_t)rxData2[5]);			// 32 bit value for current
+
+        	delta_t = HAL_GetTick() - lastWakeTime;
+        	lastWakeTime = HAL_GetTick();
+
+        }*/
     }
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
 {
-    // [ 0x00, 0x04, V1, V0, I1, I0 ]
-    if (uartRxData[0] == 0x00 && uartRxData[1] == 0x04) {
-        // Start chargign
-        ELCON_Voltage = (uint16_t)((uartRxData[2] << 8) | uartRxData[3]);
-        ELCON_Current = (uint16_t)((uartRxData[4] << 8) | uartRxData[5]);
-        CAN2_StartCharging = true;
-    }
-    else if (uartRxData[0] == 0x00 && uartRxData[1] == 0x02) {
-        // Stop charring
-        FDCAN_StopCharging();
-    }
+    // Start Charging - [ 0x00, V1, V0, I1, I0 ]
+	// Stop Charging - [ 0x01 ]
+	// Start Balancing - [ 0x02, V1, V0 ]
+	// Stop Balancing - [ 0x03 ]
+
+	switch (uartRxData[0]) {
+	case 0x00:
+		// Start charging
+		ELCON_MaxVoltage = (uint16_t)((uartRxData[1] << 8) | uartRxData[2]);
+		ELCON_MaxCurrent = (uint16_t)((uartRxData[3] << 8) | uartRxData[4]);
+		startCharging = true;
+		stopCharging = false;
+		break;
+
+	case 0x01:
+		// Stop charging
+		stopCharging = true;
+		startCharging = false;
+		break;
+
+	case 0x02:
+		// Start balancing
+		target_voltage = (uint16_t)((uartRxData[1] << 8) | uartRxData[2]);
+		startBalancing = true;
+		stopBalancing = false;
+		break;
+
+	case 0x03:
+		// Stop balancing
+		stopBalancing = true;
+		startBalancing = false;
+		break;
+	}
+
 
     // Receive next
-    HAL_UART_Receive_IT(&huart1, uartRxData, 6);
+	if (HAL_UART_Receive_IT(&huart1, uartRxData, 6) != HAL_OK)
+	{
+	    Error_Handler();
+	}
 }
 
 /* USER CODE END 4 */
@@ -841,6 +893,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
+  if (htim->Instance == TIM6) {
+        // Send charger message
+  }
 
   /* USER CODE END Callback 1 */
 }
@@ -853,6 +908,7 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
+  FAULT_LOW();
   __disable_irq();
 
   while (1)

@@ -58,6 +58,9 @@ default.size.stdout \
 OBJDUMP_LIST += \
 26-BMS_Master.list \
 
+OBJCOPY_BIN += \
+26-BMS_Master.bin \
+
 
 # All Target
 all: main-build
@@ -81,12 +84,17 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
+26-BMS_Master.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "26-BMS_Master.bin"
+	@echo 'Finished building: $@'
+	@echo ' '
+
 # Other Targets
 clean:
-	-$(RM) 26-BMS_Master.elf 26-BMS_Master.list 26-BMS_Master.map default.size.stdout
+	-$(RM) 26-BMS_Master.bin 26-BMS_Master.elf 26-BMS_Master.list 26-BMS_Master.map default.size.stdout
 	-@echo ' '
 
-secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
+secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_BIN)
 
 fail-specified-linker-script-missing:
 	@echo 'Error: Cannot find the specified linker script. Check the linker settings in the build configuration.'

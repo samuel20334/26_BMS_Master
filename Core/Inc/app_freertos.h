@@ -60,7 +60,10 @@ extern osThreadId_t SafetyTaskHandle;
 extern osThreadId_t CANTaskHandle;
 extern osThreadId_t BalancingTaskHandle;
 extern osMutexId_t icLockHandle;
-extern osSemaphoreId_t firstMeasurementHandle;
+extern osMutexId_t tempLockHandle;
+extern osMutexId_t canDataLockHandle;
+extern osTimerId_t ChargingTimerHandle;
+extern osTimerId_t canTimerHandle;
 
 /* Exported function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -71,6 +74,8 @@ void MeasurementTask(void *argument);
 void SafetyTask(void *argument);
 void CANTask(void *argument);
 void BalancingTask(void *argument);
+void ChargingTimerCallback(void *argument);
+void canTimer(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
