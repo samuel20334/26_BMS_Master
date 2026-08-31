@@ -59,8 +59,12 @@ int binary_search(const uint16_t *array, uint16_t size, uint16_t target) {
 	}
 }
 
-float_t ntc_to_temp(uint16_t ntc_voltage) {
-    return ((-3.1598 * ((float_t)ntc_voltage/100)) + 81.327)*100;
+int32_t ntc_to_temp(uint16_t ntc_voltage, uint16_t vref2) {
+    float_t resistance = (float)(55000*ntc_voltage)/(vref2-ntc_voltage+0.0000001);
+	float_t temp = -21.65*logf(resistance) + 275.02;
+	//float_t temp = (-32.755 * ((float_t)ntc_voltage/10000)) + 87.544;
+	int32_t temp_int = (int32_t)(temp*1000);
+	return temp_int;
 }
 
 uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS]) {
@@ -144,7 +148,7 @@ void read_cell_voltages(uint8_t total_ic, cell_asic *ic) {
 	LTC6813_rdcv(0, total_ic, ic);
 }
 
-void read_cell_temps(uint8_t total_ic, cell_asic *ic) {
+void read_cell_temps(uint8_t total_ic, cell_asic *ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC]) {
 	wakeup_idle(total_ic);
 	HAL_Delay(1);
 
@@ -155,6 +159,20 @@ void read_cell_temps(uint8_t total_ic, cell_asic *ic) {
 	HAL_Delay(1);
 
 	LTC6813_rdaux(0, total_ic, ic);
+
+	for (int ic_idx = 0; ic_idx < total_ic; ic_idx++) {
+		for (int ch = 0; ch < TEMPS_PER_IC; ch++) {
+			int temp_ch;
+			if (ch >= 5) {
+				temp_ch = ch+1;
+			} else {
+				temp_ch = ch;
+			}
+
+			int32_t temp = ntc_to_temp(ic[ic_idx].aux.a_codes[temp_ch], ic[ic_idx].aux.a_codes[5]);
+			temps[ic_idx][ch] = temp;
+		}
+	}
 
 }
 
@@ -251,7 +269,7 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     bool fault = false;
     uint8_t fault_counter = 0;
 
-    for (uint8_t ic_idx = 0; ic_idx < 9; ic_idx++) {
+    for (uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++) {
         for (uint8_t cell = 0; cell < CELLS_PER_IC; cell++) {
         	if (ic[ic_idx].cells.c_codes[cell] < uv) {
         		*mask |= FAULT_UNDERVOLTAGE;
@@ -286,17 +304,16 @@ bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot
     bool fault = false;
     uint8_t fault_counter = 0;
 
-    for(uint8_t ic_idx = 0; ic_idx < total_ic-1; ic_idx++)
+    for(uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++)
     {
         for(uint8_t ch = 0; ch < TEMPS_PER_IC; ch++)
         {
-
-        	if(ic_idx == 5 && ch == 0) continue;
-
         	uint8_t temp_ch;
 
             if (ch == 5) {
             	temp_ch = 6;
+            } else {
+            	temp_ch = ch;
             }
 
         	if(ic[ic_idx].aux.a_codes[temp_ch] > ut)
@@ -566,8 +583,8 @@ void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMEN
 				break;
 		}
 
-    	float ntcMin = ntc_to_temp((float)max_temps[i]);
-		float ntcMax = ntc_to_temp((float)min_temps[i]);
+    	float ntcMin = ntc_to_temp((float)max_temps[i], 30000);
+		float ntcMax = ntc_to_temp((float)min_temps[i], 30000);
     	FDCAN_SendCellData(hfdcan, can_id, min_voltages[i], max_voltages[i], ntcMin, ntcMax);
     }
 }
@@ -688,9 +705,9 @@ uint8_t balance_cells(int8_t total_ic, cell_asic *ic, uint16_t target_voltage)
     	ic[ic_idx].config.tx_data[4] = 0x00;		// dcc for cells 1-8
     	ic[ic_idx].config.tx_data[5] = 0x00;		// dcc for cells 9-12 (& dcto)
     	ic[ic_idx].configb.tx_data[0] = 0x00;	// dcc for cells 13-16
-    	ic[ic_idx].configb.tx_data[1] = 0x00;	// dcc for cells 17-18
+    	//ic[ic_idx].configb.tx_data[1] = 0x00;	// dcc for cells 17-18
 
-    	ic[ic_idx].config.tx_data[0] |= (1 << 2); // enable refon
+    	//ic[ic_idx].config.tx_data[0] |= (1 << 2); // enable refon
     }
 
     for (int ic_idx = 0; ic_idx < total_ic; ic_idx++)
@@ -714,6 +731,17 @@ uint8_t balance_cells(int8_t total_ic, cell_asic *ic, uint16_t target_voltage)
             }
          }
     }
+
+	bool gpioa[5] = {true, true, true, true, true};
+	for (int i=0;i<total_ic;i++) {
+	  	LTC6813_set_cfgr_refon(i, ic, true);
+	  	LTC6813_set_cfgr_gpio(i, ic, gpioa);
+	}
+
+    bool gpiob[4] = {true, true, true, true};
+	for (int i=0;i<total_ic;i++) {
+	  	LTC6813_set_cfgrb_gpio_b(i, ic, gpiob);
+	}
 
     wakeup_idle(TOTAL_IC);
     HAL_Delay(2);
@@ -828,14 +856,14 @@ void read_temps_25(uint8_t total_ic, cell_asic *ic, uint16_t temps[TOTAL_IC][TEM
     }
 }
 
-void print_temps_25(uint16_t temps[TOTAL_IC][TEMPS_PER_IC]) {
+void print_temps_25(int32_t temps[TOTAL_IC][TEMPS_PER_IC]) {
 	for(int ic_idx = 0; ic_idx < TOTAL_IC; ic_idx++) {
 		uart_print("T");
 		uart_print_uint(ic_idx);
 		uart_print(",");
 
-		for (int cell = 0; cell < CELLS_PER_IC; cell++) {
-			uart_print_uint(temps[ic_idx][cell]/10);
+		for (int ch = 0; ch < TEMPS_PER_IC; ch++) {
+			uart_print_int(temps[ic_idx][ch]);
 			uart_print(",");
 		}
 

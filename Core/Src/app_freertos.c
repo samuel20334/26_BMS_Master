@@ -61,12 +61,14 @@ uint32_t rx;
 uint32_t tx;
 FDCAN_ErrorCountersTypeDef error_counts;
 
-uint16_t temps[TOTAL_IC][TEMPS_PER_IC];
+int32_t temps[TOTAL_IC][TEMPS_PER_IC];
 
 bool firstMeasurementDone = false;
 bool fault_state = false;
 uint8_t fault_mask = 0;
 uint8_t fault_data[3];
+bool measurementWatchdogExpired = false;
+bool safetyWatchdogExpired = false;
 
 volatile uint16_t ELCON_MaxVoltage = 0;
 volatile uint16_t ELCON_MaxCurrent = 0;
@@ -144,10 +146,15 @@ osTimerId_t ChargingTimerHandle;
 const osTimerAttr_t ChargingTimer_attributes = {
   .name = "ChargingTimer"
 };
-/* Definitions for canTimer */
-osTimerId_t canTimerHandle;
-const osTimerAttr_t canTimer_attributes = {
-  .name = "canTimer"
+/* Definitions for measurementWatchdogTimer */
+osTimerId_t measurementWatchdogTimerHandle;
+const osTimerAttr_t measurementWatchdogTimer_attributes = {
+  .name = "measurementWatchdogTimer"
+};
+/* Definitions for safetyWatchdogTimer */
+osTimerId_t safetyWatchdogTimerHandle;
+const osTimerAttr_t safetyWatchdogTimer_attributes = {
+  .name = "safetyWatchdogTimer"
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -183,8 +190,11 @@ void MX_FREERTOS_Init(void) {
   /* creation of ChargingTimer */
   ChargingTimerHandle = osTimerNew(ChargingTimerCallback, osTimerPeriodic, NULL, &ChargingTimer_attributes);
 
-  /* creation of canTimer */
-  canTimerHandle = osTimerNew(canTimer, osTimerPeriodic, NULL, &canTimer_attributes);
+  /* creation of measurementWatchdogTimer */
+  measurementWatchdogTimerHandle = osTimerNew(measurementWatchdogTimer, osTimerPeriodic, NULL, &measurementWatchdogTimer_attributes);
+
+  /* creation of safetyWatchdogTimer */
+  safetyWatchdogTimerHandle = osTimerNew(safetyWatchdogTimer, osTimerPeriodic, NULL, &safetyWatchdogTimer_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
@@ -269,7 +279,7 @@ void MeasurementTask(void *argument)
 		  read_cell_voltages(TOTAL_IC, IC);
 
 		  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
-			  read_cell_temps(TOTAL_IC, IC);
+			  read_cell_temps(TOTAL_IC, IC, temps);
 
 			  if (osMutexAcquire(canDataLockHandle, osWaitForever) == osOK) {
 				  temp_analytics(TOTAL_IC, temps, max_temps, min_temps);
@@ -297,6 +307,8 @@ void MeasurementTask(void *argument)
 		  osThreadFlagsSet(CANTaskHandle, 0x01);
 		  osThreadFlagsSet(BalancingTaskHandle, 0x01);
 	  }
+
+	  osTimerStart(measurementWatchdogTimerHandle, pdMS_TO_TICKS(2000)); // reset the watchdog timer
 
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
@@ -331,6 +343,8 @@ void SafetyTask(void *argument)
 	  if (fault_state) {
 		  FAULT_LOW();
 	  }
+
+	  osTimerStart(safetyWatchdogTimerHandle, pdMS_TO_TICKS(2000)); // reset the watchdog timer
 
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
@@ -402,8 +416,8 @@ void BalancingTask(void *argument)
   for(;;)
   {
 	  if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
-		  if (!balancingDone) {
-			  //balancingDone = balance_cells(TOTAL_IC, IC, target_voltage);
+		  if (startBalancing && !balancingDone && !fault_state) {
+			  balancingDone = balance_cells(TOTAL_IC, IC, target_voltage);
 		  }
 		  osMutexRelease(icLockHandle);
 	  }
@@ -421,14 +435,24 @@ void ChargingTimerCallback(void *argument)
   /* USER CODE END ChargingTimerCallback */
 }
 
-/* canTimer function */
-void canTimer(void *argument)
+/* measurementWatchdogTimer function */
+void measurementWatchdogTimer(void *argument)
 {
-  /* USER CODE BEGIN canTimer */
-  osMutexAcquire(canDataLockHandle, osWaitForever);
-  CAN_TX_Process(&canTxBuf);
-  osMutexRelease(canDataLockHandle);
-  /* USER CODE END canTimer */
+  /* USER CODE BEGIN measurementWatchdogTimer */
+  fault_state = true;
+  measurementWatchdogExpired = true;
+  FAULT_LOW();
+  /* USER CODE END measurementWatchdogTimer */
+}
+
+/* safetyWatchdogTimer function */
+void safetyWatchdogTimer(void *argument)
+{
+  /* USER CODE BEGIN safetyWatchdogTimer */
+  fault_state = true;
+  safetyWatchdogExpired = true;
+  FAULT_LOW();
+  /* USER CODE END safetyWatchdogTimer */
 }
 
 /* Private application code --------------------------------------------------*/
