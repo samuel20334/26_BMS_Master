@@ -204,6 +204,7 @@ void uart_print(char *str);
 void uart_print_hex(uint8_t val);
 void uart_print_dec(uint16_t val);
 void uart_print_uint(uint32_t val);
+void uart_print_int(int32_t val);
 /*!
  Wake isoSPI up from IDlE state and enters the READY state
  @return void

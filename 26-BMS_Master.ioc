@@ -388,3 +388,5 @@ rtos.0.tasks.3=allocationType,Dynamic;bufferName,NULL;codeGen,Default;controlBlo
 rtos.0.tasks.4=allocationType,Dynamic;bufferName,NULL;codeGen,Default;controlBlockName,NULL;entry,BalancingTask;name,BalancingTask;parameter,NULL;priority,osPriorityNormal;stackSize,256
 rtos.0.timers.0=allocationType,Dynamic;codeGen,Default;controlBlockName,NULL;entry,ChargingTimerCallback;name,ChargingTimer;parameter,NULL;type,osTimerPeriodic
 rtos.0.timers.1=allocationType,Dynamic;codeGen,Default;controlBlockName,NULL;entry,canTimer;name,canTimer;parameter,NULL;type,osTimerPeriodic
+rtos.0.timers.2=allocationType,Dynamic;codeGen,Default;controlBlockName,NULL;entry,measurementWatchdogTimer;name,measurementWatchdogTimer;parameter,NULL;type,osTimerPeriodic
+rtos.0.timers.3=allocationType,Dynamic;codeGen,Default;controlBlockName,NULL;entry,SafetyWatchdogTimer;name,safetyWatchdogTimer;parameter,NULL;type,osTimerPeriodic

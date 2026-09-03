@@ -130,6 +130,13 @@ void uart_print_uint(uint32_t val)
     uart_print(buf);
 }
 
+void uart_print_int(int32_t val)
+{
+    char buf[14]; // Enough for 32-bit int + null
+    snprintf(buf, sizeof(buf), "%ld ", (long)val);
+    uart_print(buf);
+}
+
 /* Wake isoSPI up from IDlE state and enters the READY state */
 void wakeup_idle(uint8_t total_ic) //Number of ICs in the system
 {

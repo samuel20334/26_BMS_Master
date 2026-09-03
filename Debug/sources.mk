@@ -25,7 +25,6 @@ OBJCOPY_BIN :=
 SUBDIRS := \
 Core/Src \
 Core/Startup \
-Drivers/Elcon \
 Drivers/LTC6813/Src \
 Drivers/STM32H5xx_HAL_Driver/Src \
 Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2 \

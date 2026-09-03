@@ -15,7 +15,6 @@ RM := rm -rf
 -include Middlewares/Third_Party/FreeRTOS/Source/subdir.mk
 -include Drivers/STM32H5xx_HAL_Driver/Src/subdir.mk
 -include Drivers/LTC6813/Src/subdir.mk
--include Drivers/Elcon/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
 -include objects.mk
@@ -40,37 +39,37 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := 26-BMS_Master
+BUILD_ARTIFACT_NAME := 26_BMS_Master
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-26-BMS_Master.elf \
+26_BMS_Master.elf \
 
 MAP_FILES += \
-26-BMS_Master.map \
+26_BMS_Master.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-26-BMS_Master.list \
+26_BMS_Master.list \
 
 OBJCOPY_BIN += \
-26-BMS_Master.bin \
+26_BMS_Master.bin \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: 26-BMS_Master.elf secondary-outputs
+main-build: 26_BMS_Master.elf secondary-outputs
 
 # Tool invocations
-26-BMS_Master.elf 26-BMS_Master.map: $(OBJS) $(USER_OBJS) C:\Users\smpet\Desktop\26-BMS_Master\STM32H563RITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "26-BMS_Master.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m33 -T"C:\Users\smpet\Desktop\26-BMS_Master\STM32H563RITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="26-BMS_Master.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+26_BMS_Master.elf 26_BMS_Master.map: $(OBJS) $(USER_OBJS) C:\Users\smpet\Desktop\Github_BMS_Master\26_BMS_Master\STM32H563RITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "26_BMS_Master.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m33 -T"C:\Users\smpet\Desktop\Github_BMS_Master\26_BMS_Master\STM32H563RITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="26_BMS_Master.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -79,19 +78,19 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-26-BMS_Master.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "26-BMS_Master.list"
+26_BMS_Master.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "26_BMS_Master.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
-26-BMS_Master.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "26-BMS_Master.bin"
+26_BMS_Master.bin: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O binary $(EXECUTABLES) "26_BMS_Master.bin"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) 26-BMS_Master.bin 26-BMS_Master.elf 26-BMS_Master.list 26-BMS_Master.map default.size.stdout
+	-$(RM) 26_BMS_Master.bin 26_BMS_Master.elf 26_BMS_Master.list 26_BMS_Master.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_BIN)

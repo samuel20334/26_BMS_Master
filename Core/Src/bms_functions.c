@@ -103,28 +103,28 @@ uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltage
 	return packVoltage;
 }
 
-void temp_analytics(uint8_t total_ic, uint16_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t max_temps[TOTAL_SEGMENTS], uint16_t min_temps[TOTAL_SEGMENTS]) {
+void temp_analytics(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS]) {
 
-	for (uint8_t seg_idx=0;seg_idx<total_ic-1;seg_idx++) {
-		uint16_t max_temp = 65535;
-		uint16_t min_temp = 0;
+	for (uint8_t seg_idx=0;seg_idx<TOTAL_SEGMENTS;seg_idx++) {
+		int32_t max_temp = 0;
+		int32_t min_temp = 65535;
 
-		for (uint8_t ch = 1;ch < TEMPS_PER_IC;ch++) {
-			uint16_t voltage1_mV = code_to_mV(temps[2*seg_idx][ch]);
-			uint16_t voltage2_mV = code_to_mV(temps[2*seg_idx+1][ch]);
+		for (uint8_t ch = 0;ch < TEMPS_PER_IC;ch++) {
+			int32_t temp1 = temps[2*seg_idx][ch];		// bottom CMU
+			int32_t temp2 = temps[2*seg_idx+1][ch];		// top CMU
 
-			if (voltage1_mV < max_temp) {
-				max_temp = voltage1_mV;
+			if (temp1 > max_temp) {
+				max_temp = temp1;
 			}
-			if (voltage2_mV < max_temp) {
-				max_temp = voltage1_mV;
+			if (temp2 > max_temp) {
+				max_temp = temp2;
 			}
 
-			if (voltage1_mV > min_temp) {
-				min_temp = voltage1_mV;
+			if (temp1 < min_temp) {
+				min_temp = temp1;
 			}
-			if (voltage2_mV > min_temp) {
-				min_temp = voltage2_mV;
+			if (temp2 < min_temp) {
+				min_temp = temp2;
 			}
 		}
 
@@ -210,7 +210,7 @@ void print_cell_voltages(uint8_t total_ic, cell_asic *ic)
     }
 }
 
-void print_cell_temps(uint8_t total_ic, cell_asic *ic)
+void print_cell_temps(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC])
 {
     for (uint8_t ic_idx = 0; ic_idx < total_ic; ic_idx++)
     {
@@ -219,10 +219,10 @@ void print_cell_temps(uint8_t total_ic, cell_asic *ic)
         uart_print(",");
 
         // Loop through all cells in this IC
-        for (uint8_t cell = 0; cell < TEMPS_PER_IC; cell++)
+        for (uint8_t ch = 0; ch < TEMPS_PER_IC; ch++)
         {
-            uint16_t mv = (ic[ic_idx].aux.a_codes[cell])/10;  // convert to mV
-            uart_print_uint(mv);
+            int32_t temp = temps[ic_idx][ch];
+            uart_print_int(temp);
             uart_print(",");
         }
 
@@ -351,14 +351,14 @@ bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot
 void FDCAN1_Init(FDCAN_HandleTypeDef* fdcanHandle)
 {
     /* IVT Current Sensor CAN IDs */
-    FDCAN_FilterTypeDef filterConfig;
+    /*FDCAN_FilterTypeDef filterConfig;
 
     filterConfig.IdType = FDCAN_STANDARD_ID;
     filterConfig.FilterIndex = 0;
     filterConfig.FilterType = FDCAN_FILTER_MASK;
     filterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
     filterConfig.FilterID1 = 0x520;
-    filterConfig.FilterID2 = 0x5F0;
+    filterConfig.FilterID2 = 0x5F0; */
 
     /*if (HAL_FDCAN_ConfigFilter(fdcanHandle, &filterConfig) != HAL_OK)
     {
@@ -394,14 +394,14 @@ void FDCAN1_Init(FDCAN_HandleTypeDef* fdcanHandle)
 void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle)
 {
     /* ELCON Charger CAN IDs */
-    FDCAN_FilterTypeDef filterConfig;
+    /*FDCAN_FilterTypeDef filterConfig;
 
     filterConfig.IdType = FDCAN_EXTENDED_ID;
     filterConfig.FilterIndex = 0;
     filterConfig.FilterType = FDCAN_FILTER_DUAL;
     filterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
     filterConfig.FilterID1 = 0x1806E5F4; // BMS -> Charger
-    filterConfig.FilterID2 = 0x18FF50E5; // Charger -> Broadcast
+    filterConfig.FilterID2 = 0x18FF50E5; // Charger -> Broadcast */
 
     /*if (HAL_FDCAN_ConfigFilter(fdcanHandle, &filterConfig) != HAL_OK)
     {
@@ -443,7 +443,7 @@ void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle)
 static HAL_StatusTypeDef FDCAN_AddToTxFifoQ(
     FDCAN_HandleTypeDef* hfdcan,
     const FDCAN_TxHeaderTypeDef *pTxHeader,
-    const uint8_t* txData)
+    uint8_t* txData)
 {
     uint32_t start = HAL_GetTick();
     const uint32_t timeout_ms = 10;
@@ -459,7 +459,7 @@ static HAL_StatusTypeDef FDCAN_AddToTxFifoQ(
     return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan, pTxHeader, txData);
 }
 
-bool CAN_TX_Enqueue(CAN_RingBuffer_t *q, CAN_TxMsg_t *msg)
+bool CAN_TX_Enqueue(volatile CAN_RingBuffer_t *q, CAN_TxMsg_t *msg)
 {
     uint16_t next = (q->head + 1) % CAN_TX_BUFFER_SIZE;
 
@@ -477,27 +477,30 @@ bool CAN_TX_Enqueue(CAN_RingBuffer_t *q, CAN_TxMsg_t *msg)
 
 void CAN_TX_Process(CAN_RingBuffer_t *q)
 {
-    	if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1) == 0)
+    	/*if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2) == 0)
         {
     		return;
-        }
+        }*/
 
         CAN_TxMsg_t *msg = &q->buffer[q->tail];
 
-        if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1,
+        /*if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2,
                                           &msg->header,
                                           msg->data) == HAL_OK)
         {
             q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
         }
-        else if (HAL_FDCAN_GetError(&hfdcan1) & HAL_FDCAN_ERROR_FIFO_FULL)
+        else if (HAL_FDCAN_GetError(&hfdcan2) & HAL_FDCAN_ERROR_FIFO_FULL)
         {
             return;
         }
         else
         {
             q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
-        }
+        }*/
+
+        FDCAN_AddToTxFifoQ(&hfdcan2, &msg->header, &msg->data);
+        q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
 }
 
 void FDCAN_SendCellData(
@@ -505,8 +508,8 @@ void FDCAN_SendCellData(
 		uint32_t can_id,
         uint16_t minV,
         uint16_t maxV,
-        int16_t minT,
-        int16_t maxT
+        int32_t minT,
+        int32_t maxT
     )
 {
     CAN_TxMsg_t msg = {0};
@@ -556,7 +559,7 @@ void FDCAN_SendPackData(
     CAN_TX_Enqueue(&canTxBuf, &msg);
 }
 
-void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], uint16_t max_temps[TOTAL_SEGMENTS], uint16_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage)
+void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage)
 {
     // Send pack votage
     FDCAN_SendPackData(hfdcan, packVoltage);
@@ -583,9 +586,7 @@ void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMEN
 				break;
 		}
 
-    	float ntcMin = ntc_to_temp((float)max_temps[i], 30000);
-		float ntcMax = ntc_to_temp((float)min_temps[i], 30000);
-    	FDCAN_SendCellData(hfdcan, can_id, min_voltages[i], max_voltages[i], ntcMin, ntcMax);
+    	FDCAN_SendCellData(hfdcan, can_id, min_voltages[i], max_voltages[i], min_temps[i], max_temps[i]);
     }
 }
 

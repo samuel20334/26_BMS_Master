@@ -1,5 +1,5 @@
 Drivers/LTC6813/Src/ltc6813.o: ../Drivers/LTC6813/Src/ltc6813.c \
- C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc6813.h \
+ C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/LTC6813/Inc/ltc6813.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal.h \
  ../Core/Inc/stm32h5xx_hal_conf.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_rcc.h \
@@ -32,7 +32,7 @@ Drivers/LTC6813/Src/ltc6813.o: ../Drivers/LTC6813/Src/ltc6813.c \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_uart_ex.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_exti.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_fdcan.h
-C:/Users/smpet/Desktop/26-BMS_Master/Drivers/LTC6813/Inc/ltc6813.h:
+C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/LTC6813/Inc/ltc6813.h:
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal.h:
 ../Core/Inc/stm32h5xx_hal_conf.h:
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_rcc.h:

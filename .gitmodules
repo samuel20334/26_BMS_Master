@@ -1,3 +1,6 @@
 [submodule "Drivers/Elcon"]
 	path = Drivers/Elcon
 	url = https://gitlab.com/Curtin-Motorsport-Team/cmt-el-firmware/2025/elcon.git
+[submodule "stm32-m95p32"]
+	path = stm32-m95p32
+	url = https://github.com/STMicroelectronics/stm32-m95p32.git

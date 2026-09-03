@@ -52,8 +52,8 @@ extern cell_asic IC[TOTAL_IC];
 
 uint16_t max_voltages[TOTAL_SEGMENTS];
 uint16_t min_voltages[TOTAL_SEGMENTS];
-uint16_t max_temps[TOTAL_SEGMENTS];
-uint16_t min_temps[TOTAL_SEGMENTS];
+int32_t max_temps[TOTAL_SEGMENTS];
+int32_t min_temps[TOTAL_SEGMENTS];
 uint32_t packVoltage = 0;
 
 uint32_t err;
@@ -146,6 +146,11 @@ osTimerId_t ChargingTimerHandle;
 const osTimerAttr_t ChargingTimer_attributes = {
   .name = "ChargingTimer"
 };
+/* Definitions for canTimer */
+osTimerId_t canTimerHandle;
+const osTimerAttr_t canTimer_attributes = {
+  .name = "canTimer"
+};
 /* Definitions for measurementWatchdogTimer */
 osTimerId_t measurementWatchdogTimerHandle;
 const osTimerAttr_t measurementWatchdogTimer_attributes = {
@@ -190,11 +195,14 @@ void MX_FREERTOS_Init(void) {
   /* creation of ChargingTimer */
   ChargingTimerHandle = osTimerNew(ChargingTimerCallback, osTimerPeriodic, NULL, &ChargingTimer_attributes);
 
+  /* creation of canTimer */
+  canTimerHandle = osTimerNew(canTimer, osTimerPeriodic, NULL, &canTimer_attributes);
+
   /* creation of measurementWatchdogTimer */
   measurementWatchdogTimerHandle = osTimerNew(measurementWatchdogTimer, osTimerPeriodic, NULL, &measurementWatchdogTimer_attributes);
 
   /* creation of safetyWatchdogTimer */
-  safetyWatchdogTimerHandle = osTimerNew(safetyWatchdogTimer, osTimerPeriodic, NULL, &safetyWatchdogTimer_attributes);
+  safetyWatchdogTimerHandle = osTimerNew(SafetyWatchdogTimer, osTimerPeriodic, NULL, &safetyWatchdogTimer_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
@@ -243,13 +251,12 @@ void SerialTask(void *argument)
 
   for(;;)
   {
-	  osMutexAcquire(icLockHandle, osWaitForever);
-	  print_cell_voltages(TOTAL_IC, IC);
-	  print_temps_25(temps);	// 25 CODE
-	  print_faults(fault_mask);
-	  osMutexRelease(icLockHandle);
-
-	  //print_cell_temps(TOTAL_IC, IC);			// 26 CODE
+	  if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
+		  print_cell_voltages(TOTAL_IC, IC);
+		  print_cell_temps(TOTAL_IC, temps);
+		  print_faults(fault_mask);
+		  osMutexRelease(icLockHandle);
+	  }
 
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
@@ -392,7 +399,9 @@ void CANTask(void *argument)
 	}
 
 	osMutexAcquire(canDataLockHandle, osWaitForever);
-	CAN_TX_Process(&canTxBuf);
+	while (canTxBuf.head != canTxBuf.tail) {
+		CAN_TX_Process(&canTxBuf);
+	}
 	osMutexRelease(canDataLockHandle);
 
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
@@ -435,6 +444,14 @@ void ChargingTimerCallback(void *argument)
   /* USER CODE END ChargingTimerCallback */
 }
 
+/* canTimer function */
+void canTimer(void *argument)
+{
+  /* USER CODE BEGIN canTimer */
+
+  /* USER CODE END canTimer */
+}
+
 /* measurementWatchdogTimer function */
 void measurementWatchdogTimer(void *argument)
 {
@@ -445,14 +462,14 @@ void measurementWatchdogTimer(void *argument)
   /* USER CODE END measurementWatchdogTimer */
 }
 
-/* safetyWatchdogTimer function */
-void safetyWatchdogTimer(void *argument)
+/* SafetyWatchdogTimer function */
+void SafetyWatchdogTimer(void *argument)
 {
-  /* USER CODE BEGIN safetyWatchdogTimer */
+  /* USER CODE BEGIN SafetyWatchdogTimer */
   fault_state = true;
   safetyWatchdogExpired = true;
   FAULT_LOW();
-  /* USER CODE END safetyWatchdogTimer */
+  /* USER CODE END SafetyWatchdogTimer */
 }
 
 /* Private application code --------------------------------------------------*/
