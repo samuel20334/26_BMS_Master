@@ -76,7 +76,7 @@
 #define CS_PIN GPIO_PIN_2
 #define CS_PORT GPIOC
 #define CELLS_PER_IC 14
-#define TEMPS_PER_IC 13
+#define TEMPS_PER_IC 6
 
 #define TOTAL_IC 10
 #define TOTAL_SEGMENTS 5
