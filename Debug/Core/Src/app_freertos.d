@@ -45,7 +45,9 @@ Core/Src/app_freertos.o: ../Core/Src/app_freertos.c \
  ../Middlewares/Third_Party/CMSIS/RTOS2/Include/cmsis_os2.h \
  ../Core/Inc/bms_functions.h \
  C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/LTC6813/Inc/ltc6813.h \
- C:/Users/smpet/Desktop/26-BMS_Master/Drivers/Elcon/elcon.h
+ C:/Users/smpet/Desktop/26-BMS_Master/Drivers/Elcon/elcon.h \
+ C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/M95P32/m95p32.h \
+ C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/M95P32/m95p32_conf.h
 ../Core/Inc/app_freertos.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
 ../Core/Inc/FreeRTOSConfig.h:
@@ -94,3 +96,5 @@ Core/Src/app_freertos.o: ../Core/Src/app_freertos.c \
 ../Core/Inc/bms_functions.h:
 C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/LTC6813/Inc/ltc6813.h:
 C:/Users/smpet/Desktop/26-BMS_Master/Drivers/Elcon/elcon.h:
+C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/M95P32/m95p32.h:
+C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/M95P32/m95p32_conf.h:

@@ -56,6 +56,12 @@ int32_t max_temps[TOTAL_SEGMENTS];
 int32_t min_temps[TOTAL_SEGMENTS];
 uint32_t packVoltage = 0;
 
+uint8_t eeprom_voltages[CELLS_PER_IC * TOTAL_IC];
+uint8_t eeprom_temps[TEMPS_PER_IC * TOTAL_IC];
+M95_Object_t eeprom_obj;
+uint8_t sec = 0;
+uint8_t min = 0;
+
 uint32_t err;
 uint32_t rx;
 uint32_t tx;
@@ -79,6 +85,7 @@ extern CAN_RingBuffer_t canTxBuf;
 volatile uint16_t target_voltage = 34000;
 volatile bool startBalancing = false;
 volatile bool stopBalancing = false;
+volatile bool readEEPROM = false;
 
 FDCAN_TxHeaderTypeDef hTxHeader;
 
@@ -123,6 +130,13 @@ const osThreadAttr_t CANTask_attributes = {
 osThreadId_t BalancingTaskHandle;
 const osThreadAttr_t BalancingTask_attributes = {
   .name = "BalancingTask",
+  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 256 * 4
+};
+/* Definitions for LoggingTask */
+osThreadId_t LoggingTaskHandle;
+const osThreadAttr_t LoggingTask_attributes = {
+  .name = "LoggingTask",
   .priority = (osPriority_t) osPriorityNormal,
   .stack_size = 256 * 4
 };
@@ -226,6 +240,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of BalancingTask */
   BalancingTaskHandle = osThreadNew(BalancingTask, NULL, &BalancingTask_attributes);
 
+  /* creation of LoggingTask */
+  LoggingTaskHandle = osThreadNew(LoggingTask, NULL, &LoggingTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -313,6 +330,7 @@ void MeasurementTask(void *argument)
 		  osThreadFlagsSet(SafetyTaskHandle, 0x01);
 		  osThreadFlagsSet(CANTaskHandle, 0x01);
 		  osThreadFlagsSet(BalancingTaskHandle, 0x01);
+		  osThreadFlagsSet(LoggingTaskHandle, 0x01);
 	  }
 
 	  osTimerStart(measurementWatchdogTimerHandle, pdMS_TO_TICKS(2000)); // reset the watchdog timer
@@ -434,6 +452,50 @@ void BalancingTask(void *argument)
 	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }
   /* USER CODE END BalancingTask */
+}
+
+/* USER CODE BEGIN Header_LoggingTask */
+/**
+* @brief Function implementing the LoggingTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_LoggingTask */
+void LoggingTask(void *argument)
+{
+  /* USER CODE BEGIN LoggingTask */
+  osThreadFlagsWait(0x01, osFlagsWaitAny, osWaitForever);
+  TickType_t lastWakeTime = xTaskGetTickCount();
+
+  EEPROM_Init(&eeprom_obj);
+
+  uint32_t head;
+  uint32_t seq;
+
+  EEPROM_FindStart(&eeprom_obj, &head, &seq);
+  /* Infinite loop */
+  for(;;)
+  {
+
+	if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
+		EEPROM_Process_Voltages(TOTAL_IC, IC, eeprom_voltages);
+		EEPROM_Process_Temps(TOTAL_IC, IC, eeprom_temps);
+	}
+
+	uint64_t ms_from_start = (uint64_t)pdTICKS_TO_MS(xTaskGetTickCount());
+	uint16_t timestamp = getTimestamp(ms_from_start);
+
+	if (EEPROM_Write(&eeprom_obj, timestamp, head, &seq, eeprom_voltages, eeprom_temps) == M95_OK) {
+	    head = (head + 1) % NUM_RECORDS;
+    }
+
+	if (readEEPROM) {
+		EEPROM_TransmitAll(&huart1, &eeprom_obj);
+	}
+
+	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+  }
+  /* USER CODE END LoggingTask */
 }
 
 /* ChargingTimerCallback function */

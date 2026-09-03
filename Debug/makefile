@@ -14,7 +14,9 @@ RM := rm -rf
 -include Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/subdir.mk
 -include Middlewares/Third_Party/FreeRTOS/Source/subdir.mk
 -include Drivers/STM32H5xx_HAL_Driver/Src/subdir.mk
+-include Drivers/M95P32/subdir.mk
 -include Drivers/LTC6813/Src/subdir.mk
+-include Drivers/Elcon/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
 -include objects.mk

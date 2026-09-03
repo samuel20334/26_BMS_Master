@@ -14,7 +14,6 @@ uint8_t                  rxData2[8];
 
 extern uint16_t ELCON_MaxVoltage;
 extern uint16_t ELCON_MaxCurrent;
-extern TIM_HandleTypeDef htim6;
 
 extern bool startCharging;
 CAN2_Mode_e     CAN2_Mode;
@@ -499,7 +498,7 @@ void CAN_TX_Process(CAN_RingBuffer_t *q)
             q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
         }*/
 
-        FDCAN_AddToTxFifoQ(&hfdcan2, &msg->header, &msg->data);
+        FDCAN_AddToTxFifoQ(&hfdcan2, &msg->header, msg->data);
         q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
 }
 
@@ -756,6 +755,223 @@ uint8_t balance_cells(int8_t total_ic, cell_asic *ic, uint16_t target_voltage)
     HAL_Delay(200);
 
     return done;
+}
+
+// EEPROM FUNCTIONS
+static int32_t EEPROM_IO_Init(void)
+{
+  HAL_GPIO_WritePin(EEPROM_CS_GPIO_Port, EEPROM_CS_Pin, GPIO_PIN_SET);
+  return 0;
+}
+
+static int32_t EEPROM_IO_DeInit(void)
+{
+  return 0;
+}
+
+static int32_t EEPROM_IO_Write(uint8_t *pData, uint16_t Size)
+{
+  HAL_GPIO_WritePin(EEPROM_CS_GPIO_Port, EEPROM_CS_Pin, GPIO_PIN_RESET);
+  HAL_StatusTypeDef status = HAL_SPI_Transmit(&hspi2, pData, Size, HAL_MAX_DELAY);
+
+  return (status == HAL_OK) ? 0 : -1;
+}
+
+static int32_t EEPROM_IO_Read(uint8_t *pData, uint16_t Size)
+{
+  HAL_StatusTypeDef status = HAL_SPI_Receive(&hspi2, pData, Size, HAL_MAX_DELAY);
+  HAL_GPIO_WritePin(EEPROM_CS_GPIO_Port, EEPROM_CS_Pin, GPIO_PIN_SET);
+  return (status == HAL_OK) ? 0 : -1;
+}
+
+static void EEPROM_IO_Delay(uint32_t ms)
+{
+  HAL_Delay(ms);
+}
+
+void EEPROM_Init(M95_Object_t *eeprom_obj) {
+	M95_IO_t eeprom_io;
+
+	int32_t ret;
+
+	eeprom_io.Init   = EEPROM_IO_Init;
+	eeprom_io.DeInit = EEPROM_IO_DeInit;
+	eeprom_io.Write  = EEPROM_IO_Write;
+	eeprom_io.Read   = EEPROM_IO_Read;
+	eeprom_io.Delay  = EEPROM_IO_Delay;
+
+	ret = M95P32_RegisterBusIO(eeprom_obj, &eeprom_io);
+	if (ret != M95_OK)
+	{
+	  Error_Handler();
+	}
+
+	ret = M95P32_spi_Init(eeprom_obj);
+	if (ret != M95_OK)
+	{
+	  Error_Handler();
+	}
+
+	eeprom_obj->IO.Delay(1);
+
+	uint8_t jedec_id[3] = {0};
+
+	ret = Read_JEDEC(eeprom_obj, jedec_id, 3);
+	if (ret != M95_OK || jedec_id[0] != 0x20)
+	{
+	  Error_Handler();
+	}
+}
+
+void EEPROM_Process_Voltages(uint8_t total_ic, cell_asic *ic, uint8_t *write_data) {
+	int i = 0;
+
+	for (int ic_idx = 0;ic_idx < total_ic;ic_idx++) {
+		for (int cell = 0;cell < CELLS_PER_IC;cell++) {
+			write_data[i] = (ic[ic_idx].cells.c_codes[cell] >> 8) - 270;
+			i++;
+		}
+	}
+}
+
+void EEPROM_Process_Temps(uint8_t total_ic, cell_asic *ic, uint8_t *write_data) {
+	int i = 0;
+
+	for (int ic_idx = 0;ic_idx < total_ic;ic_idx++) {
+		for (int ch = 0;ch < TEMPS_PER_IC + 1;ch++) {
+			int temp_ch;
+			if (ch >= 5)
+				temp_ch = ch + 1;
+			else
+				temp_ch = ch;
+
+			write_data[i] = (ic[ic_idx].aux.a_codes[temp_ch] >> 8) - 99;
+			i++;
+		}
+	}
+}
+
+uint16_t crc16(const uint8_t *data, size_t length)
+{
+    uint16_t crc = 0xFFFF;
+
+    for (size_t i = 0; i < length; i++)
+    {
+        crc ^= (uint16_t)data[i] << 8;
+
+        for (uint8_t j = 0; j < 8; j++)
+        {
+            if (crc & 0x8000)
+            {
+                crc = (crc << 1) ^ 0x1021;
+            }
+            else
+            {
+                crc <<= 1;
+            }
+        }
+    }
+
+    return crc;
+}
+
+static bool SeqIsNewer(uint32_t a, uint32_t b) {
+    return (int32_t)(a - b) > 0;
+}
+
+int32_t EEPROM_Write(M95_Object_t *pObj, uint16_t timestamp,
+                         uint32_t index, uint32_t *pSeq,
+                         const uint8_t *voltages, const uint8_t *temps)
+{
+    LogRecord_t rec = {0};
+    rec.seq       = (*pSeq)++;
+    rec.timestamp = timestamp;
+    memcpy(rec.voltages, voltages, sizeof(rec.voltages));
+    memcpy(rec.temperatures, temps, sizeof(rec.temperatures));
+    memset(rec.reserved, 0xFF, sizeof(rec.reserved));
+    rec.crc16 = crc16((uint8_t*)&rec, offsetof(LogRecord_t, crc16));
+
+    int32_t ret = WRITE_ENABLE(pObj);
+    if (ret != M95_OK) return ret;
+
+    ret = Page_Write(pObj, (uint8_t*)&rec, REC_ADDR(index), RECORD_SIZE);
+    if (ret != M95_OK) return ret;
+
+#ifdef USE_SPI
+    ret = Transmit_Data_polling(pObj);   /* wait for internal write cycle */
+#endif
+    return ret;
+}
+
+int32_t EEPROM_FindStart(M95_Object_t *pObj, uint32_t *outHead, uint32_t *outNextSeq)
+{
+    uint32_t bestIdx = 0, bestSeq = 0;
+    bool anyValid = false;
+    LogRecord_t rec;
+
+    for (uint32_t i = 0; i < NUM_RECORDS; i++) {
+        if (Single_Read(pObj, (uint8_t*)&rec, REC_ADDR(i), RECORD_SIZE) != M95_OK)
+            return M95_ERROR;
+
+        uint16_t crc = crc16((uint8_t*)&rec, offsetof(LogRecord_t, crc16));
+        if (crc != rec.crc16) continue;      /* blank or torn-write slot */
+
+        if (!anyValid || SeqIsNewer(rec.seq, bestSeq)) {
+            bestSeq = rec.seq;
+            bestIdx = i;
+            anyValid = true;
+        }
+    }
+
+    if (!anyValid) {                          /* brand-new, never written */
+        *outHead = 0;
+        *outNextSeq = 0;
+        return M95_OK;
+    }
+
+    *outHead = (bestIdx + 1) % NUM_RECORDS;
+    *outNextSeq = bestSeq + 1;
+    return M95_OK;
+}
+
+uint16_t getTimestamp(uint64_t ms) {
+	uint8_t sec;
+	uint8_t min;
+
+	uint16_t raw_sec = (uint16_t)(ms/1000.0);
+
+	min = raw_sec / 60;
+	sec = raw_sec % 60;
+
+	return ((uint16_t)min << 8) | sec;
+}
+
+int32_t EEPROM_TransmitAll(UART_HandleTypeDef *huart, M95_Object_t *pObj) {
+    LogRecord_t rec;
+
+    for (uint32_t i = 0; i < NUM_RECORDS; i++)
+    {
+        int32_t ret = Single_Read(pObj, (uint8_t *)&rec, REC_ADDR(i), RECORD_SIZE);
+
+        if (ret != M95_OK)
+        {
+            return ret;
+        }
+
+        uint16_t crc = crc16((uint8_t *)&rec, offsetof(LogRecord_t, crc16));
+
+        if (crc != rec.crc16)
+        {
+            continue;
+        }
+
+        if (HAL_UART_Transmit(huart, (uint8_t *)&rec, sizeof(LogRecord_t), UART_TIMEOUT) != HAL_OK)
+        {
+            return M95_ERROR;
+        }
+    }
+
+    return M95_OK;
 }
 
 // MULTIPLEXING FUNCTIONS (FOR CMT25)

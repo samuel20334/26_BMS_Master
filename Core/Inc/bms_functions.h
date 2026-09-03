@@ -10,6 +10,7 @@
 
 #include "ltc6813.h"
 #include "elcon.h"
+#include "m95p32.h"
 
 #define CAN_TX_BUFFER_SIZE 256
 #define CAN_FAULT_MSG_ID 0xF0
@@ -29,6 +30,19 @@
 #define CAN_IVTS_VOLTAGE2_ID 0x523
 #define P45B_CAPACITY	4500	// P45B capacity in mAh
 
+#define UART_TIMEOUT 1000
+
+#define EEPROM_CS_GPIO_Port GPIOB
+#define EEPROM_CS_Pin	GPIO_PIN_12
+#define LOG_BASE_ADDR   0x000200UL
+#define RECORD_SIZE     256UL
+#define NUM_RECORDS     16382UL
+#define REC_ADDR(i)     (LOG_BASE_ADDR + ((uint32_t)(i) * RECORD_SIZE))
+
+extern TIM_HandleTypeDef htim6;
+
+extern SPI_HandleTypeDef hspi2;
+
 extern FDCAN_HandleTypeDef hfdcan1;
 extern FDCAN_HandleTypeDef hfdcan2;
 
@@ -37,6 +51,8 @@ extern FDCAN_RxHeaderTypeDef    rxHeader1;
 
 extern FDCAN_TxHeaderTypeDef    txHeader2;
 extern FDCAN_RxHeaderTypeDef    rxHeader2;
+
+extern UART_HandleTypeDef huart1;
 
 extern bool CAN2_StartCharging;
 
@@ -59,6 +75,17 @@ typedef struct
     volatile uint16_t head;
     volatile uint16_t tail;
 } CAN_RingBuffer_t;
+
+#pragma pack(push, 1)
+typedef struct {
+    uint32_t seq;            /* monotonic, never reset */
+    uint16_t timestamp;      /* min + sec bige endian */
+    uint8_t  voltages[140];
+    uint8_t  temperatures[60];
+    uint8_t  reserved[48];   /* pads record to 256 bytes, spare for later */
+    uint16_t crc16;          /* CRC-16/CCITT over the fields above */
+} LogRecord_t;               /* sizeof == 256 */
+#pragma pack(pop)
 
 
 uint16_t code_to_mV(uint16_t code);
@@ -127,6 +154,24 @@ bool CAN_TX_Enqueue(volatile CAN_RingBuffer_t *q, CAN_TxMsg_t *msg);
 void CAN_TX_Process(CAN_RingBuffer_t *q);
 
 uint8_t balance_cells(int8_t total_ic, cell_asic *ic, uint16_t target_voltage);
+
+void EEPROM_Init(M95_Object_t *eeprom_obj);
+
+void EEPROM_Process_Voltages(uint8_t total_ic, cell_asic *ic, uint8_t *write_data);
+
+void EEPROM_Process_Temps(uint8_t total_ic, cell_asic *ic, uint8_t *write_data);
+
+uint16_t crc16(const uint8_t *data, size_t length);
+
+uint16_t getTimestamp(uint64_t ms);
+
+int32_t EEPROM_Write(M95_Object_t *pObj, uint16_t timestamp,
+                         uint32_t index, uint32_t *pSeq,
+                         const uint8_t *voltages, const uint8_t *temps);
+
+int32_t EEPROM_FindStart(M95_Object_t *pObj, uint32_t *outHead, uint32_t *outNextSeq);
+
+int32_t EEPROM_TransmitAll(UART_HandleTypeDef *huart, M95_Object_t *pObj);
 
 bool select_temp(uint8_t total_ic, cell_asic *ic, uint8_t channel);
 

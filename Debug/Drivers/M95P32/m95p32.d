@@ -1,6 +1,5 @@
-Core/Src/bms_functions.o: ../Core/Src/bms_functions.c \
- ../Core/Inc/bms_functions.h \
- C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/LTC6813/Inc/ltc6813.h \
+Drivers/M95P32/m95p32.o: ../Drivers/M95P32/m95p32.c \
+ ../Drivers/M95P32/m95p32.h ../Drivers/M95P32/m95p32_conf.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal.h \
  ../Core/Inc/stm32h5xx_hal_conf.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_rcc.h \
@@ -32,12 +31,9 @@ Core/Src/bms_functions.o: ../Core/Src/bms_functions.c \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_uart.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_uart_ex.h \
  ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_exti.h \
- ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_fdcan.h \
- C:/Users/smpet/Desktop/26-BMS_Master/Drivers/Elcon/elcon.h \
- C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/M95P32/m95p32.h \
- C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/M95P32/m95p32_conf.h
-../Core/Inc/bms_functions.h:
-C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/LTC6813/Inc/ltc6813.h:
+ ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_fdcan.h
+../Drivers/M95P32/m95p32.h:
+../Drivers/M95P32/m95p32_conf.h:
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal.h:
 ../Core/Inc/stm32h5xx_hal_conf.h:
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_rcc.h:
@@ -70,6 +66,3 @@ C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/LTC6813/Inc/ltc68
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_uart_ex.h:
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_exti.h:
 ../Drivers/STM32H5xx_HAL_Driver/Inc/stm32h5xx_hal_fdcan.h:
-C:/Users/smpet/Desktop/26-BMS_Master/Drivers/Elcon/elcon.h:
-C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/M95P32/m95p32.h:
-C:/Users/smpet/Desktop/Github_BMS_Master/26_BMS_Master/Drivers/M95P32/m95p32_conf.h:
