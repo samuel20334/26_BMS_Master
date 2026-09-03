@@ -4,3 +4,6 @@
 [submodule "stm32-m95p32"]
 	path = stm32-m95p32
 	url = https://github.com/STMicroelectronics/stm32-m95p32.git
+[submodule "Drivers/M95P32"]
+	path = Drivers/M95P32
+	url = https://github.com/STMicroelectronics/stm32-m95p32.git
