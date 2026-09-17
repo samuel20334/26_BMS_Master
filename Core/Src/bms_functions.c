@@ -140,7 +140,7 @@ void read_cell_voltages(uint8_t total_ic, cell_asic *ic) {
 	HAL_Delay(1);
 
 	LTC6813_adcv(2, 0, 0);
-	HAL_Delay(300);  // Wait for ADC to finish
+	LTC6813_pollAdc();  // Wait for ADC to finish
 
 	wakeup_idle(total_ic);
 	HAL_Delay(1);
@@ -153,7 +153,7 @@ void read_cell_temps(uint8_t total_ic, cell_asic *ic, int32_t temps[TOTAL_IC][TE
 	HAL_Delay(1);
 
 	LTC6813_adax(2, 0);
-	HAL_Delay(300);  // Wait for ADC to finish
+	LTC6813_pollAdc();  // Wait for ADC to finish
 
 	wakeup_idle(total_ic);
 	HAL_Delay(1);
