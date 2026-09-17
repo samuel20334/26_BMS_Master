@@ -239,7 +239,7 @@ void SerialTask(void *argument)
 	  print_faults(fault_mask);
 	  osMutexRelease(icLockHandle);
 
-	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(200));
   }
   /* USER CODE END SerialTask */
 }
@@ -296,7 +296,7 @@ void MeasurementTask(void *argument)
 		  osThreadFlagsSet(BalancingTaskHandle, 0x01);
 	  }
 
-	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
   }
   /* USER CODE END MeasurementTask */
 }
@@ -330,7 +330,7 @@ void SafetyTask(void *argument)
 		  FAULT_LOW();
 	  }
 
-	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(100));
   }
   /* USER CODE END SafetyTask */
 }
@@ -381,7 +381,7 @@ void CANTask(void *argument)
 	}
 	osMutexRelease(canDataLockHandle);
 
-	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(150));
   }
   /* USER CODE END CANTask */
 }
