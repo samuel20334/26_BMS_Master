@@ -306,7 +306,7 @@ static void MX_FDCAN1_Init(void)
   hfdcan1.Init.AutoRetransmission = ENABLE;
   hfdcan1.Init.TransmitPause = DISABLE;
   hfdcan1.Init.ProtocolException = DISABLE;
-  hfdcan1.Init.NominalPrescaler = 1;
+  hfdcan1.Init.NominalPrescaler = 2;
   hfdcan1.Init.NominalSyncJumpWidth = 8;
   hfdcan1.Init.NominalTimeSeg1 = 218;
   hfdcan1.Init.NominalTimeSeg2 = 31;
@@ -348,7 +348,7 @@ static void MX_FDCAN2_Init(void)
   hfdcan2.Init.AutoRetransmission = ENABLE;
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
-  hfdcan2.Init.NominalPrescaler = 10;
+  hfdcan2.Init.NominalPrescaler = 20;
   hfdcan2.Init.NominalSyncJumpWidth = 1;
   hfdcan2.Init.NominalTimeSeg1 = 19;
   hfdcan2.Init.NominalTimeSeg2 = 5;

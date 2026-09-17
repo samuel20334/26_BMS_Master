@@ -366,7 +366,7 @@ void SafetyTask(void *argument)
 	  }
 
 	  if (fault_state) {
-		  FAULT_LOW();
+		  //FAULT_LOW();
 	  }
 
 	  osTimerStart(safetyWatchdogTimerHandle, pdMS_TO_TICKS(2000)); // reset the watchdog timer
@@ -417,9 +417,9 @@ void CANTask(void *argument)
 	}
 
 	osMutexAcquire(canDataLockHandle, osWaitForever);
-	while (canTxBuf.head != canTxBuf.tail) {
-		CAN_TX_Process(&canTxBuf);
-	}
+	//while (canTxBuf.head != canTxBuf.tail) {
+	//	CAN_TX_Process(&canTxBuf);
+	//}
 	osMutexRelease(canDataLockHandle);
 
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
@@ -467,31 +467,31 @@ void LoggingTask(void *argument)
   osThreadFlagsWait(0x01, osFlagsWaitAny, osWaitForever);
   TickType_t lastWakeTime = xTaskGetTickCount();
 
-  EEPROM_Init(&eeprom_obj);
+  //EEPROM_Init(&eeprom_obj);
 
-  uint32_t head;
-  uint32_t seq;
+  //uint32_t head;
+  //uint32_t seq;
 
-  EEPROM_FindStart(&eeprom_obj, &head, &seq);
+  //EEPROM_FindStart(&eeprom_obj, &head, &seq);
   /* Infinite loop */
   for(;;)
   {
 
-	if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
-		EEPROM_Process_Voltages(TOTAL_IC, IC, eeprom_voltages);
-		EEPROM_Process_Temps(TOTAL_IC, IC, eeprom_temps);
-	}
+	//if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
+	//	EEPROM_Process_Voltages(TOTAL_IC, IC, eeprom_voltages);
+	//	EEPROM_Process_Temps(TOTAL_IC, IC, eeprom_temps);
+	//}
 
-	uint64_t ms_from_start = (uint64_t)pdTICKS_TO_MS(xTaskGetTickCount());
-	uint16_t timestamp = getTimestamp(ms_from_start);
+	//uint64_t ms_from_start = (uint64_t)pdTICKS_TO_MS(xTaskGetTickCount());
+	//uint16_t timestamp = getTimestamp(ms_from_start);
 
-	if (EEPROM_Write(&eeprom_obj, timestamp, head, &seq, eeprom_voltages, eeprom_temps) == M95_OK) {
-	    head = (head + 1) % NUM_RECORDS;
-    }
+	//if (EEPROM_Write(&eeprom_obj, timestamp, head, &seq, eeprom_voltages, eeprom_temps) == M95_OK) {
+	//    head = (head + 1) % NUM_RECORDS;
+    //}
 
-	if (readEEPROM) {
-		EEPROM_TransmitAll(&huart1, &eeprom_obj);
-	}
+	//if (readEEPROM) {
+	//	EEPROM_TransmitAll(&huart1, &eeprom_obj);
+	//}
 
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
   }

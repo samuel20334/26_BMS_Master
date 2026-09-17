@@ -5,7 +5,7 @@
 ../Core/Src/app_freertos.c:350:6:SafetyTask	32	static
 ../Core/Src/app_freertos.c:386:6:CANTask	32	static
 ../Core/Src/app_freertos.c:437:6:BalancingTask	24	static
-../Core/Src/app_freertos.c:464:6:LoggingTask	80	static
+../Core/Src/app_freertos.c:464:6:LoggingTask	24	static
 ../Core/Src/app_freertos.c:502:6:ChargingTimerCallback	16	static
 ../Core/Src/app_freertos.c:510:6:canTimer	16	static
 ../Core/Src/app_freertos.c:518:6:measurementWatchdogTimer	16	static
