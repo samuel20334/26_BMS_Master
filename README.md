@@ -5,7 +5,7 @@
 ![C](https://img.shields.io/badge/C-Embedded-A8B9CC?logo=c&logoColor=white)
 ![GUI](https://img.shields.io/badge/GUI-PyQt6-41CD52?logo=qt&logoColor=white)
 
-Master-node firmware for a segmented lithium-ion battery pack's **Battery Management System (BMS)**, running on an **STM32H563** under **FreeRTOS**. The master aggregates cell data from multiple `LTC6813` battery stack monitors, enforces safety limits, estimates state of charge, and reports pack status over dual CAN (FDCAN) buses — with a companion desktop GUI for live monitoring.
+Master-node firmware for a segmented lithium-ion battery pack's **Battery Management System (BMS)**, running on an **STM32H563** under **FreeRTOS**. The master aggregates cell data from multiple `LTC6813` battery stack monitors, enforces safety limits, estimates state of charge, and reports pack status over dual CAN (FDCAN) buses with a companion desktop GUI for live monitoring.
 
 ## Core responsibilities
 
