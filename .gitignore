@@ -1,14 +1,34 @@
-# STM32CubeIDE Build Outputs
+# === STM32CubeIDE build output ===
 Debug/
 Release/
-*.d
+build/
+
+# === STM32CubeIDE/Eclipse local workspace state (not needed to re-import the project) ===
+.metadata/
+.settings/
+
+# === Compiler/linker intermediates (in case build dir isn't fully caught above) ===
 *.o
+*.d
 *.su
+*.cyclo
 *.elf
+*.list
+*.map
 *.bin
 *.hex
-*.map
-*.list
 
-# Local Settings
-.settings/
+# === JVM crash logs (from STM32CubeMX / Java-based tooling) ===
+hs_err_pid*.log
+replay_pid*.log
+
+# === OS/editor cruft ===
+.DS_Store
+Thumbs.db
+*.swp
+
+# === Python (gui.py) ===
+__pycache__/
+*.pyc
+.venv/
+venv/
