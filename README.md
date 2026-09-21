@@ -61,7 +61,3 @@ python gui.py
 ```
 
 Connect to the board's UART port from the GUI to view live per-segment cell voltages, temperatures, and fault status.
-
-## Suggested next step
-
-The `Debug/`, `log/`, and STM32CubeIDE build artefacts are currently tracked in the repo. Adding a `.gitignore` for these (and the compiler crash logs) would keep the history focused on source changes — happy to generate one if useful.
