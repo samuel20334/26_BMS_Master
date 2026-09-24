@@ -366,7 +366,7 @@ void SafetyTask(void *argument)
 	  }
 
 	  if (fault_state) {
-		  //FAULT_LOW();
+		  FAULT_LOW();
 	  }
 
 	  osTimerStart(safetyWatchdogTimerHandle, pdMS_TO_TICKS(2000)); // reset the watchdog timer
