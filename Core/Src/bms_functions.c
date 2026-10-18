@@ -60,8 +60,8 @@ int binary_search(const uint16_t *array, uint16_t size, uint16_t target) {
 
 int32_t ntc_to_temp(uint16_t ntc_voltage, uint16_t vref2) {
     float_t resistance = (float)(55000*ntc_voltage)/(vref2-ntc_voltage+0.0000001);
-	float_t temp = -21.65*logf(resistance) + 275.02;
-	//float_t temp = (-32.755 * ((float_t)ntc_voltage/10000)) + 87.544;
+	//float_t temp = -21.65*logf(resistance) + 275.02;
+	float_t temp = (-32.755 * ((float_t)ntc_voltage/10000)) + 87.544;
 	int32_t temp_int = (int32_t)(temp*1000);
 	return temp_int;
 }
@@ -139,7 +139,7 @@ void read_cell_voltages(uint8_t total_ic, cell_asic *ic) {
 	HAL_Delay(1);
 
 	LTC6813_adcv(2, 0, 0);
-	HAL_Delay(300);  // Wait for ADC to finish
+	LTC6813_pollAdc();
 
 	wakeup_idle(total_ic);
 	HAL_Delay(1);
@@ -152,7 +152,7 @@ void read_cell_temps(uint8_t total_ic, cell_asic *ic, int32_t temps[TOTAL_IC][TE
 	HAL_Delay(1);
 
 	LTC6813_adax(2, 0);
-	HAL_Delay(300);  // Wait for ADC to finish
+	LTC6813_pollAdc();
 
 	wakeup_idle(total_ic);
 	HAL_Delay(1);
@@ -298,7 +298,7 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     return fault;
 }
 
-bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
+bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
 {
     bool fault = false;
     uint8_t fault_counter = 0;
@@ -307,18 +307,10 @@ bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot
     {
         for(uint8_t ch = 0; ch < TEMPS_PER_IC; ch++)
         {
-        	uint8_t temp_ch;
-
-            if (ch == 5) {
-            	temp_ch = 6;
-            } else {
-            	temp_ch = ch;
-            }
-
-        	if(ic[ic_idx].aux.a_codes[temp_ch] > ut)
+        	if(temps[ic_idx][ch] < ut)
             {
                 *mask |= FAULT_UNDERTEMP;
-                fault = true;
+                //fault = true;
 
         		if (fault_counter < 3) {
         			uint8_t fault_data = ((ic_idx & 0x0F) << 4) | (ch & 0x0F);
@@ -328,7 +320,7 @@ bool check_ut_ot_fault(uint8_t total_ic, cell_asic *ic, uint16_t ut, uint16_t ot
         		fault_counter++;
 
             }
-            else if(ic[ic_idx].aux.a_codes[temp_ch] < ot)
+            else if(temps[ic_idx][ch] > ot)
             {
             	*mask |= FAULT_OVERTEMP;
             	fault = true;

@@ -35,9 +35,9 @@
 /* USER CODE BEGIN PD */
 #define TOTAL_IC 10
 #define UNDERVOLTAGE 27000
-#define OVERVOLTAGE 41000
-#define UNDERTEMP 25700
-#define OVERTEMP 9900
+#define OVERVOLTAGE 42000
+#define UNDERTEMP 0
+#define OVERTEMP 60000
 
 /* USER CODE END PD */
 
@@ -357,12 +357,13 @@ void SafetyTask(void *argument)
   {
 	  if (osMutexAcquire(icLockHandle, osWaitForever) == osOK) {
 		  fault_state |= check_uv_ov_fault(TOTAL_IC, IC, UNDERVOLTAGE, OVERVOLTAGE, &fault_mask, fault_data);
-		  osMutexRelease(icLockHandle);
-	  }
 
-	  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
-		  fault_state |= check_ut_ot_fault(TOTAL_IC, IC, UNDERTEMP, OVERTEMP, &fault_mask, fault_data);
-		  osMutexRelease(tempLockHandle);
+		  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
+			  fault_state |= check_ut_ot_fault(TOTAL_IC, IC, UNDERTEMP, OVERTEMP, &fault_mask, fault_data);
+			  osMutexRelease(tempLockHandle);
+		  }
+
+		  osMutexRelease(icLockHandle);
 	  }
 
 	  if (fault_state) {
@@ -371,7 +372,7 @@ void SafetyTask(void *argument)
 
 	  osTimerStart(safetyWatchdogTimerHandle, pdMS_TO_TICKS(2000)); // reset the watchdog timer
 
-	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+	  vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(500));
   }
   /* USER CODE END SafetyTask */
 }
