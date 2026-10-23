@@ -1,3 +1,4 @@
+import os
 import sys
 import serial
 import serial.tools.list_ports
@@ -6,10 +7,21 @@ import threading
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLabel, QLineEdit, QTableWidget,
-    QTableWidgetItem, QGroupBox, QMessageBox
+    QTableWidgetItem, QGroupBox, QMessageBox, QHeaderView
 )
 
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QFont, QPixmap, QIcon
+from PyQt6.QtCore import Qt
+
+# =========================
+# Feature Switches (edit here)
+# =========================
+ENABLE_BALANCING = True   # True = show balancing controls, False = hide them
+
+# Logo is looked up in the same folder as this script
+BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+LOGO_PATH = os.path.join(BASE_DIR, "cmt.png")
+LOGO_HEIGHT = 60  # px, height of the logo shown at the top of the window
 
 # =========================
 # Serial Reader Thread
@@ -46,15 +58,19 @@ class BMSGui(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("BMS UART Monitor")
+
+        if os.path.exists(LOGO_PATH):
+            self.setWindowIcon(QIcon(LOGO_PATH))
         self.resize(1200, 800)
 
         self.ser = None
         self.reader = None
 
         self.ic_count = 10
+        self.TEMP_COLS = 6  # number of temperature sensors shown per IC
 
         self.voltage_data = {i: [""] * 14 for i in range(self.ic_count)}
-        self.temp_data = {i: [""] * 13 for i in range(self.ic_count)}
+        self.temp_data = {i: [""] * self.TEMP_COLS for i in range(self.ic_count)}
         self.faults = [0, 0, 0, 0]
 
         self.MAX_PACK_VOLTAGE = 588.0  # V
@@ -87,6 +103,18 @@ class BMSGui(QMainWindow):
         conn_box.addWidget(refresh_btn)
         conn_box.addWidget(self.connect_btn)
 
+        # Logo on the right-hand side of the connection row
+        logo_pixmap = QPixmap(LOGO_PATH)
+        if not logo_pixmap.isNull():
+            logo_label = QLabel()
+            logo_label.setPixmap(
+                logo_pixmap.scaledToHeight(
+                    LOGO_HEIGHT, Qt.TransformationMode.SmoothTransformation
+                )
+            )
+            conn_box.addStretch()
+            conn_box.addWidget(logo_label)
+
         layout.addLayout(conn_box)
 
         # ===== Controls =====
@@ -112,44 +140,51 @@ class BMSGui(QMainWindow):
 
         layout.addLayout(ctrl_box)
 
-        # Balancing
-        bal_box = QHBoxLayout()
+        # Balancing (only shown when ENABLE_BALANCING is True)
+        if ENABLE_BALANCING:
+            bal_box = QHBoxLayout()
 
-        self.target_voltage = QLineEdit()
-        self.target_voltage.setPlaceholderText("Target Voltage (V)")
+            self.target_voltage = QLineEdit()
+            self.target_voltage.setPlaceholderText("Target Voltage (V)")
 
-        start_bal = QPushButton("Start Balancing")
-        stop_bal = QPushButton("Stop Balancing")
+            start_bal = QPushButton("Start Balancing")
+            stop_bal = QPushButton("Stop Balancing")
 
-        start_bal.clicked.connect(self.start_balancing)
-        stop_bal.clicked.connect(self.stop_balancing)
+            start_bal.clicked.connect(self.start_balancing)
+            stop_bal.clicked.connect(self.stop_balancing)
 
-        bal_box.addWidget(self.target_voltage)
-        bal_box.addWidget(start_bal)
-        bal_box.addWidget(stop_bal)
+            bal_box.addWidget(self.target_voltage)
+            bal_box.addWidget(start_bal)
+            bal_box.addWidget(stop_bal)
 
-        layout.addLayout(bal_box)
+            layout.addLayout(bal_box)
+
+        # ===== Pack Statistics =====
+        stats_box = QHBoxLayout()
+
+        self.lbl_max_delta = self.make_stat_box(stats_box, "Max Cell Delta (V)")
+        self.lbl_total_voltage = self.make_stat_box(stats_box, "Pack Total Voltage (V)")
+        self.lbl_avg_voltage = self.make_stat_box(stats_box, "Average Cell Voltage (V)")
+        self.lbl_avg_temp = self.make_stat_box(stats_box, "Average Temperature (°C)")
+
+        layout.addLayout(stats_box)
 
         # ===== Tables =====
         self.voltage_table = QTableWidget(self.ic_count, 15)
-        self.temp_table = QTableWidget(self.ic_count, 14)
+        self.temp_table = QTableWidget(self.ic_count, self.TEMP_COLS + 1)
 
         self.voltage_table.setHorizontalHeaderLabels(
             ["IC"] + [f"C{i+1}" for i in range(14)]
         )
 
         self.temp_table.setHorizontalHeaderLabels(
-            ["IC"] + [f"T{i+1}" for i in range(13)]
+            ["IC"] + [f"T{i+1}" for i in range(self.TEMP_COLS)]
         )
 
-        self.fault_table = QTableWidget(1, 5)
-        self.fault_table.setHorizontalHeaderLabels([
-            "Undervoltage",
-            "Overvoltage",
-            "Undertemp",
-            "Overtemp",
-            "Status"
-        ])
+        # Spread the temperature columns evenly across the full table width
+        self.temp_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
 
         layout.addWidget(QLabel("Cell Voltages (V)"))
         layout.addWidget(self.voltage_table)
@@ -157,11 +192,40 @@ class BMSGui(QMainWindow):
         layout.addWidget(QLabel("Temperatures (°C)"))
         layout.addWidget(self.temp_table)
 
-        layout.addWidget(QLabel("Fault Status"))
-        layout.addWidget(self.fault_table)
+        # ===== Fault Status Boxes =====
+        fault_box = QHBoxLayout()
+
+        self.fault_labels = [
+            self.make_stat_box(fault_box, "Undervoltage"),
+            self.make_stat_box(fault_box, "Overvoltage"),
+            self.make_stat_box(fault_box, "Undertemp"),
+            self.make_stat_box(fault_box, "Overtemp"),
+        ]
+        self.lbl_fault_status = self.make_stat_box(fault_box, "Status")
+
+        layout.addLayout(fault_box)
 
         main.setLayout(layout)
         self.setCentralWidget(main)
+
+    def make_stat_box(self, parent_layout, title):
+        """Creates a titled box containing a large value label and returns the label."""
+        box = QGroupBox(title)
+        box_layout = QVBoxLayout()
+
+        value_label = QLabel("--")
+        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        font = QFont()
+        font.setPointSize(18)
+        font.setBold(True)
+        value_label.setFont(font)
+
+        box_layout.addWidget(value_label)
+        box.setLayout(box_layout)
+        parent_layout.addWidget(box)
+
+        return value_label
 
     # -------------------------
     # COM Ports
@@ -236,7 +300,7 @@ class BMSGui(QMainWindow):
         values = parts[1:]
 
         if ic < self.ic_count:
-            self.temp_data[ic] = values[:13]
+            self.temp_data[ic] = values[:self.TEMP_COLS]
             self.update_temp_table(ic)
 
     def parse_fault(self, line):
@@ -251,6 +315,53 @@ class BMSGui(QMainWindow):
             self.update_fault_table()
         except:
             pass
+
+    # -------------------------
+    # Conversions
+    # -------------------------
+    @staticmethod
+    def raw_to_temp_c(raw):
+        return -3.1598 * (raw / 100.0) + 81.327
+
+    # -------------------------
+    # Pack Statistics
+    # -------------------------
+    def update_pack_stats(self):
+        # Gather every valid cell voltage (V) across all ICs
+        voltages = []
+        for ic in range(self.ic_count):
+            for v in self.voltage_data[ic]:
+                try:
+                    voltages.append(float(v) / 1000.0)
+                except (ValueError, TypeError):
+                    pass
+
+        # Gather every valid temperature (°C) across all ICs
+        temps = []
+        for ic in range(self.ic_count):
+            for t in self.temp_data[ic]:
+                try:
+                    temps.append(self.raw_to_temp_c(float(t)))
+                except (ValueError, TypeError):
+                    pass
+
+        if voltages:
+            delta = max(voltages) - min(voltages)
+            total = sum(voltages)
+            avg_v = total / len(voltages)
+
+            self.lbl_max_delta.setText(f"{delta:.3f}")
+            self.lbl_total_voltage.setText(f"{total:.2f}")
+            self.lbl_avg_voltage.setText(f"{avg_v:.3f}")
+        else:
+            self.lbl_max_delta.setText("--")
+            self.lbl_total_voltage.setText("--")
+            self.lbl_avg_voltage.setText("--")
+
+        if temps:
+            self.lbl_avg_temp.setText(f"{sum(temps) / len(temps):.2f}")
+        else:
+            self.lbl_avg_temp.setText("--")
 
     # -------------------------
     # Table Updates
@@ -268,6 +379,8 @@ class BMSGui(QMainWindow):
             except:
                 self.voltage_table.setItem(ic, i + 1, QTableWidgetItem(""))
 
+        self.update_pack_stats()
+
     def update_temp_table(self, ic):
         self.temp_table.setItem(ic, 0, QTableWidgetItem(str(ic)))
 
@@ -275,7 +388,7 @@ class BMSGui(QMainWindow):
             try:
                 raw = float(v)
 
-                temp_c = -3.1598 * (raw / 100.0) + 81.327
+                temp_c = self.raw_to_temp_c(raw)
 
                 item = QTableWidgetItem(f"{temp_c:.2f}")
                 item.setBackground(self.temp_color(temp_c))
@@ -285,35 +398,20 @@ class BMSGui(QMainWindow):
             except:
                 self.temp_table.setItem(ic, i + 1, QTableWidgetItem(""))
 
+        self.update_pack_stats()
+
     def update_fault_table(self):
-        labels = [
-            "Undervoltage",
-            "Overvoltage",
-            "Undertemp",
-            "Overtemp"
-        ]
+        red = "background-color: rgb(255, 170, 170); color: black; border-radius: 4px; padding: 6px;"
+        green = "background-color: rgb(170, 230, 190); color: black; border-radius: 4px; padding: 6px;"
 
-        for i, val in enumerate(self.faults):
-            text = "True" if val == 1 else "False"
+        for label, val in zip(self.fault_labels, self.faults):
+            label.setText("True" if val == 1 else "False")
+            label.setStyleSheet(red if val == 1 else green)
 
-            item = QTableWidgetItem(text)
-            item.setForeground(QColor(0, 0, 0))
-
-            if val == 1:
-                item.setBackground(QColor(255, 170, 170))  # red
-            else:
-                item.setBackground(QColor(170, 230, 190))  # green
-
-            self.fault_table.setItem(0, i, item)
-
-        # Optional: system status column
+        # System status box
         any_fault = any(self.faults)
-
-        status_item = QTableWidgetItem("FAULT" if any_fault else "OK")
-        status_item.setForeground(QColor(0, 0, 0))
-        status_item.setBackground(QColor(255, 170, 170) if any_fault else QColor(170, 230, 190))
-
-        self.fault_table.setItem(0, 4, status_item)
+        self.lbl_fault_status.setText("FAULT" if any_fault else "OK")
+        self.lbl_fault_status.setStyleSheet(red if any_fault else green)
 
     # -------------------------
     # Command Builders
@@ -364,6 +462,9 @@ class BMSGui(QMainWindow):
         self.send(bytes([0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]))
 
     def start_balancing(self):
+        if not ENABLE_BALANCING:
+            return
+
         try:
             tv = float(self.target_voltage.text())   # volts
 
@@ -382,7 +483,7 @@ class BMSGui(QMainWindow):
                     f"Target voltage must be ≤ {self.MAX_PACK_VOLTAGE} V"
                 )
                 return
-            
+
             tv = int(tv * 10000)  # correct format for CMUs
 
             packet = bytes([
@@ -400,6 +501,9 @@ class BMSGui(QMainWindow):
             QMessageBox.warning(self, "Error", "Invalid target voltage")
 
     def stop_balancing(self):
+        if not ENABLE_BALANCING:
+            return
+
         self.send(bytes([0x03, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]))
 
     # -------------------------
