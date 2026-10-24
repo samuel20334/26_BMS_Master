@@ -173,6 +173,7 @@ int main(void)
   LTC6813_init_cfg(TOTAL_IC, IC);
   LTC6813_init_cfgb(TOTAL_IC, IC);
   LTC6813_wrcfg(TOTAL_IC, IC);
+  LTC6813_wrcfgb(TOTAL_IC, IC);
   /* USER CODE END 2 */
 
   /* Init scheduler */

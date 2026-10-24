@@ -321,7 +321,7 @@ class BMSGui(QMainWindow):
     # -------------------------
     @staticmethod
     def raw_to_temp_c(raw):
-        return -3.1598 * (raw / 100.0) + 81.327
+        return raw/1000.0
 
     # -------------------------
     # Pack Statistics
@@ -388,7 +388,7 @@ class BMSGui(QMainWindow):
             try:
                 raw = float(v)
 
-                temp_c = self.raw_to_temp_c(raw)
+                temp_c = raw/1000.0
 
                 item = QTableWidgetItem(f"{temp_c:.2f}")
                 item.setBackground(self.temp_color(temp_c))

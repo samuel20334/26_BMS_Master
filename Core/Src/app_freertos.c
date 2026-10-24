@@ -56,19 +56,20 @@ int32_t max_temps[TOTAL_SEGMENTS];
 int32_t min_temps[TOTAL_SEGMENTS];
 uint32_t packVoltage = 0;
 
+CAN_RingBuffer_t can1TxBuf;
+CAN_RingBuffer_t can2TxBuf;
+extern FDCAN_HandleTypeDef hfdcan1;
+extern FDCAN_HandleTypeDef hfdcan2;
+
 uint8_t eeprom_voltages[CELLS_PER_IC * TOTAL_IC];
 uint8_t eeprom_temps[TEMPS_PER_IC * TOTAL_IC];
 M95_Object_t eeprom_obj;
 uint8_t sec = 0;
 uint8_t min = 0;
 
-uint32_t err;
-uint32_t rx;
-uint32_t tx;
-FDCAN_ErrorCountersTypeDef error_counts;
-
 int32_t temps[TOTAL_IC][TEMPS_PER_IC];
 
+uint8_t measure_count = 0;
 bool firstMeasurementDone = false;
 bool fault_state = false;
 uint8_t fault_mask = 0;
@@ -304,6 +305,7 @@ void MeasurementTask(void *argument)
 
 		  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
 			  read_cell_temps(TOTAL_IC, IC, temps);
+			  measure_count++;
 
 			  if (osMutexAcquire(canDataLockHandle, osWaitForever) == osOK) {
 				  temp_analytics(TOTAL_IC, temps, max_temps, min_temps);
@@ -324,7 +326,7 @@ void MeasurementTask(void *argument)
 		  SoC = soc_cc(IVTS_Current, SoC, delta_t);
 	  }*/
 
-	  if (!firstMeasurementDone) {
+	  if (measure_count > 1) {
 		  firstMeasurementDone = true;
 		  osThreadFlagsSet(SerialTaskHandle, 0x01);
 		  osThreadFlagsSet(SafetyTaskHandle, 0x01);
@@ -359,7 +361,7 @@ void SafetyTask(void *argument)
 		  fault_state |= check_uv_ov_fault(TOTAL_IC, IC, UNDERVOLTAGE, OVERVOLTAGE, &fault_mask, fault_data);
 
 		  if (osMutexAcquire(tempLockHandle, osWaitForever) == osOK) {
-			  fault_state |= check_ut_ot_fault(TOTAL_IC, IC, UNDERTEMP, OVERTEMP, &fault_mask, fault_data);
+			  fault_state |= check_ut_ot_fault(TOTAL_IC, temps, UNDERTEMP, OVERTEMP, &fault_mask, fault_data);
 			  osMutexRelease(tempLockHandle);
 		  }
 
@@ -393,18 +395,13 @@ void CANTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	err = HAL_FDCAN_GetError(&hfdcan1);
-	tx = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
-	HAL_FDCAN_GetProtocolStatus(&hfdcan1, &status);
-	HAL_FDCAN_GetErrorCounters(&hfdcan1, &error_counts);
-
 	if (osMutexAcquire(canDataLockHandle, osWaitForever) == osOK) {
-		CAN_Logging(&hfdcan1, max_voltages, min_voltages, max_temps, min_temps, packVoltage);
+		CAN_Logging(&can2TxBuf, max_voltages, min_voltages, max_temps, min_temps, packVoltage);
 		osMutexRelease(canDataLockHandle);
 	}
 
 	if (fault_state) {
-		FDCAN_SendFault(&hfdcan1, &hTxHeader, fault_mask, fault_data);
+		FDCAN_SendFault(&can2TxBuf, &hTxHeader, fault_mask, fault_data);
 	}
 
 	// Charging Code
@@ -418,9 +415,9 @@ void CANTask(void *argument)
 	}
 
 	osMutexAcquire(canDataLockHandle, osWaitForever);
-	//while (canTxBuf.head != canTxBuf.tail) {
-	//	CAN_TX_Process(&canTxBuf);
-	//}
+	while (can2TxBuf.head != can2TxBuf.tail) {
+		CAN_TX_Process(&can2TxBuf, &hfdcan2);
+	}
 	osMutexRelease(canDataLockHandle);
 
 	vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));

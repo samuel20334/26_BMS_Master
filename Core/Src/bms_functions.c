@@ -17,7 +17,8 @@ extern uint16_t ELCON_MaxCurrent;
 
 extern bool startCharging;
 CAN2_Mode_e     CAN2_Mode;
-volatile CAN_RingBuffer_t canTxBuf;
+
+uint8_t total_fault_count = 0;
 
 // GENERAL FUNCTIONS
 
@@ -60,8 +61,8 @@ int binary_search(const uint16_t *array, uint16_t size, uint16_t target) {
 
 int32_t ntc_to_temp(uint16_t ntc_voltage, uint16_t vref2) {
     float_t resistance = (float)(55000*ntc_voltage)/(vref2-ntc_voltage+0.0000001);
-	//float_t temp = -21.65*logf(resistance) + 275.02;
-	float_t temp = (-32.755 * ((float_t)ntc_voltage/10000)) + 87.544;
+	float_t temp = -21.65*logf(resistance) + 275.02;
+	//float_t temp = (-32.755 * ((float_t)ntc_voltage/10000)) + 87.544;
 	int32_t temp_int = (int32_t)(temp*1000);
 	return temp_int;
 }
@@ -151,8 +152,21 @@ void read_cell_temps(uint8_t total_ic, cell_asic *ic, int32_t temps[TOTAL_IC][TE
 	wakeup_idle(total_ic);
 	HAL_Delay(1);
 
+	bool gpioa[5] = {true, true, true, true, true};
+	for (int i=0;i<total_ic;i++) {
+	  	LTC6813_set_cfgr_refon(i, ic, true);
+	  	LTC6813_set_cfgr_gpio(i, ic, gpioa);
+	}
+	bool gpiob[4] = {true, true, true, true};
+	for (int i=0;i<total_ic;i++) {
+		LTC6813_set_cfgrb_gpio_b(i, ic, gpiob);
+	}
+	LTC6813_wrcfg(total_ic, ic);
+	LTC6813_wrcfgb(total_ic, ic);
+
 	LTC6813_adax(2, 0);
 	LTC6813_pollAdc();
+	HAL_Delay(200);
 
 	wakeup_idle(total_ic);
 	HAL_Delay(1);
@@ -298,7 +312,7 @@ bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov
     return fault;
 }
 
-bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data)
+bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], int32_t ut, int32_t ot, uint8_t *mask, uint8_t *data)
 {
     bool fault = false;
     uint8_t fault_counter = 0;
@@ -310,7 +324,7 @@ bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], 
         	if(temps[ic_idx][ch] < ut)
             {
                 *mask |= FAULT_UNDERTEMP;
-                //fault = true;
+                fault = true;
 
         		if (fault_counter < 3) {
         			uint8_t fault_data = ((ic_idx & 0x0F) << 4) | (ch & 0x0F);
@@ -466,36 +480,16 @@ bool CAN_TX_Enqueue(volatile CAN_RingBuffer_t *q, CAN_TxMsg_t *msg)
     return true;
 }
 
-void CAN_TX_Process(CAN_RingBuffer_t *q)
+void CAN_TX_Process(CAN_RingBuffer_t *q, FDCAN_HandleTypeDef *hfdcan)
 {
-    	/*if (HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan2) == 0)
-        {
-    		return;
-        }*/
-
         CAN_TxMsg_t *msg = &q->buffer[q->tail];
 
-        /*if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2,
-                                          &msg->header,
-                                          msg->data) == HAL_OK)
-        {
-            q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
-        }
-        else if (HAL_FDCAN_GetError(&hfdcan2) & HAL_FDCAN_ERROR_FIFO_FULL)
-        {
-            return;
-        }
-        else
-        {
-            q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
-        }*/
-
-        FDCAN_AddToTxFifoQ(&hfdcan2, &msg->header, msg->data);
+        FDCAN_AddToTxFifoQ(hfdcan, &msg->header, msg->data);
         q->tail = (q->tail + 1) % CAN_TX_BUFFER_SIZE;
 }
 
 void FDCAN_SendCellData(
-        FDCAN_HandleTypeDef* hfdcan,
+		CAN_RingBuffer_t *q,
 		uint32_t can_id,
         uint16_t minV,
         uint16_t maxV,
@@ -521,12 +515,12 @@ void FDCAN_SendCellData(
     packS16(minT, msg.data + 4);
     packS16(maxT, msg.data + 6);
 
-    CAN_TX_Enqueue(&canTxBuf, &msg);
+    CAN_TX_Enqueue(q, &msg);
 }
 
 void FDCAN_SendPackData(
-        FDCAN_HandleTypeDef* hfdcan,
-        uint32_t pack_voltage
+		CAN_RingBuffer_t *q,
+		uint32_t pack_voltage
     )
 {
     CAN_TxMsg_t msg = {0};
@@ -547,13 +541,13 @@ void FDCAN_SendPackData(
     msg.data[2] = (uint8_t)(pack_voltage >> 8);
     msg.data[3] = (uint8_t)(pack_voltage);
 
-    CAN_TX_Enqueue(&canTxBuf, &msg);
+    CAN_TX_Enqueue(q, &msg);
 }
 
-void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage)
+void CAN_Logging(CAN_RingBuffer_t *q, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage)
 {
     // Send pack votage
-    FDCAN_SendPackData(hfdcan, packVoltage);
+    FDCAN_SendPackData(q, packVoltage);
 
 	for (uint8_t i = 0; i < TOTAL_SEGMENTS; i++) {
     	// Send values
@@ -577,13 +571,13 @@ void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMEN
 				break;
 		}
 
-    	FDCAN_SendCellData(hfdcan, can_id, min_voltages[i], max_voltages[i], min_temps[i], max_temps[i]);
+    	FDCAN_SendCellData(q, can_id, min_voltages[i], max_voltages[i], min_temps[i], max_temps[i]);
     }
 }
 
 void FDCAN_SendFault(
-        FDCAN_HandleTypeDef* hfdcan,
-        FDCAN_TxHeaderTypeDef* hTxHeader,
+		CAN_RingBuffer_t *q,
+		FDCAN_TxHeaderTypeDef* hTxHeader,
         uint8_t bitmask,
 		uint8_t *fault_data
     )
@@ -612,7 +606,7 @@ void FDCAN_SendFault(
     msg.data[2] = fault_data[1];
     msg.data[3] = fault_data[2];
 
-    CAN_TX_Enqueue(&canTxBuf, &msg);
+    CAN_TX_Enqueue(q, &msg);
 }
 
 void FDCAN_SendChargerMessage(uint16_t maxVoltage, uint16_t maxCurrent, uint8_t enable)

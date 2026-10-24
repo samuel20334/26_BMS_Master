@@ -108,7 +108,7 @@ void print_faults(uint8_t fault_mask);
 
 bool check_uv_ov_fault(uint8_t total_ic, cell_asic *ic, uint16_t uv, uint16_t ov, uint8_t *mask, uint8_t *data);
 
-bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], uint16_t ut, uint16_t ot, uint8_t *mask, uint8_t *data);
+bool check_ut_ot_fault(uint8_t total_ic, int32_t temps[TOTAL_IC][TEMPS_PER_IC], int32_t ut, int32_t ot, uint8_t *mask, uint8_t *data);
 
 uint32_t voltage_analytics(uint8_t total_ic, cell_asic *ic, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS]);
 
@@ -119,7 +119,7 @@ void FDCAN1_Init(FDCAN_HandleTypeDef* fdcanHandle);
 void FDCAN2_Init(FDCAN_HandleTypeDef* fdcanHandle);
 
 void FDCAN_SendCellData(
-        FDCAN_HandleTypeDef* hfdcan,
+		CAN_RingBuffer_t *q,
 		uint32_t can_id,
         uint16_t minV,
         uint16_t maxV,
@@ -128,15 +128,15 @@ void FDCAN_SendCellData(
     );
 
 void FDCAN_SendPackData(
-        FDCAN_HandleTypeDef* hfdcan,
-        uint32_t pack_voltage
+		CAN_RingBuffer_t *q,
+		uint32_t pack_voltage
     );
 
-void CAN_Logging(FDCAN_HandleTypeDef* hfdcan, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage);
+void CAN_Logging(CAN_RingBuffer_t *q, uint16_t max_voltages[TOTAL_SEGMENTS], uint16_t min_voltages[TOTAL_SEGMENTS], int32_t max_temps[TOTAL_SEGMENTS], int32_t min_temps[TOTAL_SEGMENTS], uint32_t packVoltage);
 
 void FDCAN_SendFault(
-        FDCAN_HandleTypeDef* hfdcan,
-        FDCAN_TxHeaderTypeDef* hTxHeader,
+		CAN_RingBuffer_t *q,
+		FDCAN_TxHeaderTypeDef* hTxHeader,
         uint8_t bitmask,
 		uint8_t *fault_data
     );
@@ -151,7 +151,7 @@ void CAN_Charging(bool *fault_state);
 
 bool CAN_TX_Enqueue(volatile CAN_RingBuffer_t *q, CAN_TxMsg_t *msg);
 
-void CAN_TX_Process(CAN_RingBuffer_t *q);
+void CAN_TX_Process(CAN_RingBuffer_t *q, FDCAN_HandleTypeDef *hfdcan);
 
 uint8_t balance_cells(int8_t total_ic, cell_asic *ic, uint16_t target_voltage);
 
